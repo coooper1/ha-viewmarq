@@ -81,6 +81,30 @@ def effective_pages(settings):
     return result
 
 
+def arranged_fields(fields, columns, alignment):
+    """Share a row between distinct automatic left/center/right fields."""
+    result = deepcopy(fields)
+    groups = {}
+    for item in result:
+        if item.get("column", 0) == 0 and item.get("width", 0) == 0 and item.get("height", 1) == 1:
+            groups.setdefault(item.get("row", 0), []).append(item)
+    for group in groups.values():
+        aligns = [item.get("align") or alignment for item in group]
+        if len(group) < 2 or len(set(aligns)) != len(group):
+            continue
+        for item, align in zip(group, aligns):
+            slot = ("left", "center", "right").index(align)
+            start, end = slot * columns // 3, (slot + 1) * columns // 3
+            item.update(column=start, width=end - start)
+    for item in result:
+        if item.get("width", 0) == 0 and item.get("height", 1) == 1:
+            col, row = item.get("column", 0), item.get("row", 0)
+            next_columns = [other.get("column", 0) for other in result
+                            if other.get("row", 0) == row and other.get("column", 0) > col]
+            item["width"] = min(next_columns, default=columns) - col
+    return result
+
+
 def validate_pages(pages, settings, model, allow_overlap=False):
     if not isinstance(pages, list) or len(pages) > 1000 or len(json.dumps(pages)) > 524288:
         raise ValueError("Page collection must fit within 512 KiB and 1,000 pages")
@@ -141,6 +165,10 @@ def validate_pages(pages, settings, model, allow_overlap=False):
             for key in ("text", "label", "entity", "attribute"):
                 if not isinstance(item.get(key, ""), str) or len(item.get(key, "")) > (10000 if key == "text" else 190):
                     raise ValueError(f"Invalid field {key}")
+        for item in arranged_fields(fields, geometry["columns"], settings.get("alignment", "center")):
+            row, col = item.get("row", 0), item.get("column", 0)
+            width = item.get("width", 0) or geometry["columns"] - col
+            height = item.get("height", 1) or max(1, geometry["rows"] - row % geometry["rows"])
             cells = {(y, x) for y in range(row, row + height) for x in range(col, col + width)}
             if occupied & cells and not allow_overlap:
                 raise ValueError(f"Fields overlap on {page['name']}. Move a field or reduce its width/height.")
@@ -222,7 +250,7 @@ def render_page(page, settings, model, get_state, now, record):
     geometry = layout(model, font)
     rows, columns = geometry["rows"], geometry["columns"]
     fields, slices, logical_rows = [], 1, rows
-    for item in page["fields"]:
+    for item in arranged_fields(page["fields"], columns, settings.get("alignment", "center")):
         row, col = item.get("row", 0), item.get("column", 0)
         width = item.get("width", 0) or columns - col
         height = item.get("height", 1) or max(1, rows - row % rows)

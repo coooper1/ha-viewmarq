@@ -1,3 +1,7 @@
+# 0.3.5 — Share one row
+
+Automatic-width, single-line fields on the same row now share left, center and right sections when their alignments differ. The second row stays available; long values continue on additional frames. Explicit widths and columns remain supported. Includes numeric sports samples.
+
 # 0.3.4 — Numeric sports samples
 
 Sample layouts now show representative first downs, passing and rushing yards, rebounds, assists, field goal percentages, and turnovers instead of generic sample text. These values remain editor-only; live games use actual feed data.

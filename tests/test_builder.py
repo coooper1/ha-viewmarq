@@ -147,6 +147,26 @@ class BuilderTests(unittest.TestCase):
         self.assertIn("1st: 14", samples[0].text)
         self.assertIn("Opp: 11", samples[0].text)
 
+    def test_shared_row_alignments_and_neighbor_columns(self):
+        page = new_page("custom", "shared")
+        page["fields"] = [{**field("text", text=text), "align": align}
+                          for text, align in (("LEFT", "left"), ("MID", "center"), ("RIGHT", "right"))]
+        page["fields"].append(field("text", 1, "Underneath"))
+        original = deepcopy(page)
+        validate_pages([page], self.settings, MODEL)
+        self.settings["pages"] = [page]
+        lines = self.render()[0].text.split("\n")
+        self.assertEqual(lines[0], "LEFT      MID      RIGHT")
+        self.assertIn("Underneath", lines[1])
+        self.assertEqual(page, original)
+        page["fields"] = [field("text", text="A"), {**field("text", text="B"), "column": 8}, {**field("text", text="C"), "column": 16}]
+        validate_pages([page], self.settings, MODEL)
+        line = self.render()[0].text.split("\n")[0]
+        self.assertIn("A", line[:8]); self.assertIn("B", line[8:16]); self.assertIn("C", line[16:])
+        page["fields"][0]["width"] = 12
+        with self.assertRaises(ValueError):
+            validate_pages([page], self.settings, MODEL)
+
     def test_sonos_metadata_and_idle_visibility(self):
         p = new_page("media", "sonos"); p["entity"] = "media_player.test_speaker"
         self.settings["pages"] = [p]
