@@ -1,3 +1,7 @@
+# 0.3.1 — Preview follows scrolling
+
+Fix the preview scroll container so layout and live previews stay visible while editing long pages. Keep preview controls within the viewport, including a compact sticky preview on narrow screens. Frontend-only behavior change; refresh the ViewMarq editor after updating.
+
 # 0.3.0 — Persistent page builder
 
 - Add, delete, duplicate, reorder and enable per-display pages with field grids, fonts, colors, durations, motion and visibility conditions.
