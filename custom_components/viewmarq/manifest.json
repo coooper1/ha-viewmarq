@@ -1,7 +1,7 @@
 {
   "domain": "viewmarq",
   "name": "ViewMarq",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "config_flow": true,
   "documentation": "https://github.com/coooper1/ha-viewmarq",
   "integration_type": "device",

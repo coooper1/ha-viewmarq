@@ -1,3 +1,7 @@
+# 0.5.1 — Faster live sports updates
+
+Live ESPN scoreboards and requested game statistics refresh every five seconds instead of thirty. Inactive leagues retain the two-minute interval, shared caching, bounded requests and error backoff. Visible sports pages update on the next display tick; other pages keep their configured rotation. ESPN publishing delays still apply.
+
 # 0.5.0 — Compact weather, editable alerts and football possession
 
 Single-screen weather combines time, Fahrenheit, conditions, rain, UV, heat index and feels-like. Weather warnings can alternate with the same weather screen. Weather and sensor alerts use editable page-builder layouts, including fields, colors, fonts and timing. Editor previews remain samples; physical tests are explicitly marked TEST, expire after 20 seconds and yield to actual priority alerts. Stop-test control restores normal operation immediately. Football possession layouts show scores, possession, down-and-distance and ball position, with selected-team possession green, opponent red and unknown amber.

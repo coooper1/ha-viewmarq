@@ -24,6 +24,7 @@ FAVORITES = [
     {"league": "NFL", "id": "6", "name": "Dallas Cowboys"},
 ]
 BASE = "https://site.api.espn.com/apis/site/v2/sports/"
+LIVE_REFRESH_SECONDS = 5
 
 
 async def team_choices(hass, league):
@@ -109,7 +110,7 @@ class ESPNCache:
                     data = await response.json()
                 if not isinstance(data, dict):
                     raise ValueError("Invalid ESPN summary")
-                item.update(data=data, updated=time.monotonic(), next=time.monotonic() + 30, failures=0)
+                item.update(data=data, updated=time.monotonic(), next=time.monotonic() + LIVE_REFRESH_SECONDS, failures=0)
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError):
             item["failures"] += 1
             item["next"] = time.monotonic() + min(300, 30 * 2 ** min(item["failures"] - 1, 4))
@@ -146,7 +147,7 @@ class ESPNCache:
                     raise ValueError("Invalid ESPN scoreboard")
                 feed.update(data=data, updated=time.monotonic(), failures=0, status="Current")
                 live = any(e.get("status", {}).get("type", {}).get("state") == "in" for e in data["events"])
-                feed["next"] = time.monotonic() + (30 if live else 120)
+                feed["next"] = time.monotonic() + (LIVE_REFRESH_SECONDS if live else 120)
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError):
             feed["failures"] += 1
             feed["status"] = "ESPN unavailable; cached scores expire automatically"
