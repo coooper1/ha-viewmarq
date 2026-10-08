@@ -1,5 +1,50 @@
 """Normalize actual ESPN game fields without substituting season averages."""
 from .content import clean
+from datetime import datetime, timezone
+
+COUNTDOWN_FIELDS = {"game_matchup": "Pregame: teams", "game_countdown": "Pregame: time until start", "game_broadcast": "Pregame: broadcaster"}
+
+
+def upcoming_games(data, teams, league, now=None):
+    """Actual scheduled games within two hours; never infer that kickoff occurred."""
+    now = now or datetime.now(timezone.utc)
+    selected = {str(t["id"]) for t in teams if t["league"] == league}
+    records = []
+    for event in data.get("events", []):
+        for competition in event.get("competitions", []):
+            status = (competition.get("status") or event.get("status", {})).get("type", {})
+            if status.get("state") != "pre" or status.get("name") != "STATUS_SCHEDULED":
+                continue
+            try:
+                start = datetime.fromisoformat(competition.get("date", event.get("date", "")).replace("Z", "+00:00"))
+                if start.tzinfo is None:
+                    continue
+                remaining = (start - now).total_seconds()
+            except (ValueError, TypeError, AttributeError):
+                continue
+            if not -900 <= remaining <= 7200:
+                continue
+            competitors = competition.get("competitors", [])
+            if len(competitors) != 2:
+                continue
+            channels = []
+            for broadcast in competition.get("broadcasts", []):
+                for channel in broadcast.get("names", []):
+                    if isinstance(channel, str) and channel not in channels:
+                        channels.append(channel)
+            for team in competitors:
+                identity = str(team.get("team", {}).get("id"))
+                if identity not in selected:
+                    continue
+                opponent = next(c for c in competitors if c is not team)
+                ours = clean(team.get("team", {}).get("abbreviation", ""))
+                theirs = clean(opponent.get("team", {}).get("abbreviation", ""))
+                if not ours or not theirs:
+                    continue
+                records.append({"id": f"pregame:{league}:{event.get('id')}:{identity}",
+                                "state": "pre", "team_key": f"{league}:{identity}", "league": league,
+                                "start": start.isoformat(), "fields": {"game_matchup": f"{ours} vs {theirs}", "game_broadcast": clean("/".join(channels)) or "TV TBD"}})
+    return records
 
 SPORT_FIELDS = {
     "match_score": "Selected team and opponent scores",

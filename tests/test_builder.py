@@ -1,7 +1,7 @@
 """Behavioral tests for persistent layouts, rotation, alerts and live metadata."""
 from copy import deepcopy
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 from types import SimpleNamespace
 import unittest
@@ -9,7 +9,7 @@ import unittest
 from custom_components.viewmarq.builder import (Frame, Player, compose, effective_pages,
     field, new_page, render_pages, validate_pages, live_game_preview, sample_frames)
 from custom_components.viewmarq.const import DEFAULTS
-from custom_components.viewmarq.sports_data import live_games
+from custom_components.viewmarq.sports_data import live_games, upcoming_games
 from custom_components.viewmarq.protocol import page_message, layout
 
 NOW = datetime(2026, 10, 8, 14, 3)
@@ -27,6 +27,51 @@ class BuilderTests(unittest.TestCase):
 
     def render(self, games=()):
         return compose(self.settings, MODEL, self.states.get, NOW, games)
+
+    def test_pregame_window_transition_and_restore(self):
+        now = datetime(2026, 10, 8, 22, 15, tzinfo=timezone.utc)
+        event = {"id": "123", "date": (now + timedelta(hours=2)).isoformat(),
+                 "status": {"type": {"state": "pre", "name": "STATUS_SCHEDULED"}},
+                 "competitions": [{"competitors": [{"team": {"id": "6", "abbreviation": "DAL"}, "score": "0"}, {"team": {"id": "27", "abbreviation": "TB"}, "score": "0"}]}]}
+        data = {"events": [event]}
+        teams = [{"league": "NFL", "id": "6"}]
+        upcoming = upcoming_games(data, teams, "NFL", now)
+        self.assertEqual(len(upcoming), 1)
+        self.assertEqual(upcoming_games(data, teams, "NFL", now - timedelta(seconds=1)), [])
+        countdown = new_page("pregame", "countdown")
+        self.settings.update(pages=[new_page("clock", "clock"), new_page("sports", "score"), countdown], sports_mode="only")
+        validate_pages(self.settings["pages"], self.settings, MODEL)
+        render = lambda games, at=now: compose(self.settings, MODEL, self.states.get, at, games)
+        frames = render(upcoming)
+        self.assertEqual([f.page_id for f in frames], ["clock", "countdown"])
+        frames = frames[1:]
+        self.assertIn("DAL vs TB", frames[0].text)
+        self.assertIn("Starts in 2:00:00", frames[0].text)
+        self.assertIn("1:59:59", render(upcoming, now + timedelta(seconds=1))[-1].text)
+        self.assertEqual([f.page_id for f in render(upcoming, now + timedelta(minutes=105))], ["countdown"])
+        self.assertEqual([f.page_id for f in render(upcoming, now + timedelta(minutes=104, seconds=59))], ["clock", "countdown"])
+        self.assertIn("TV TBD", frames[0].text)
+        self.assertIn("Awaiting start", render(upcoming, now + timedelta(hours=2))[0].text)
+        event["status"]["type"].update(state="in", name="STATUS_IN_PROGRESS")
+        live = live_games(data, teams, "NFL")
+        self.assertEqual(upcoming_games(data, teams, "NFL", now), [])
+        self.assertEqual([f.page_id for f in render(live)], ["score"])
+        self.assertEqual([f.page_id for f in render([])], ["clock"])
+        countdown["teams"] = ["NFL:99"]
+        self.assertEqual([f.page_id for f in render(upcoming)], ["clock"])
+
+    def test_pregame_invalid_and_delayed_events(self):
+        now = datetime(2026, 10, 8, 22, 15, tzinfo=timezone.utc)
+        event = {"id": "123", "date": now.isoformat(), "status": {"type": {"state": "pre", "name": "STATUS_SCHEDULED"}}, "competitions": [{"competitors": [{"team": {"id": "6", "abbreviation": "DAL"}}, {"team": {"id": "27", "abbreviation": "TB"}}]}]}
+        data, teams = {"events": [event]}, [{"league": "NFL", "id": "6"}]
+        self.assertEqual(upcoming_games(data, teams, "NFL", now + timedelta(minutes=16)), [])
+        for status in ("STATUS_POSTPONED", "STATUS_CANCELED", "STATUS_DELAYED"):
+            event["status"]["type"]["name"] = status
+            self.assertEqual(upcoming_games(data, teams, "NFL", now), [])
+        event["status"]["type"]["name"] = "STATUS_SCHEDULED"
+        for date in ("bad", None, "2026-10-08T22:15:00"):
+            event["date"] = date
+            self.assertEqual(upcoming_games(data, teams, "NFL", now), [])
 
     def test_migration_preserves_options_and_restart(self):
         self.settings.update(quick_message="Hello", messages="One\nTwo", weather_entity="weather.home", date_style="full-date", teams=[{"league":"NBA","id":"25","name":"Thunder"}], binary_sensors=["binary_sensor.door"])

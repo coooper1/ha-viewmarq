@@ -6,7 +6,7 @@ import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .content import clean, paginate
-from .sports_data import live_games, SUMMARY_FIELDS
+from .sports_data import live_games, upcoming_games, SUMMARY_FIELDS
 from .builder import effective_pages
 
 LEAGUES = {
@@ -88,6 +88,7 @@ class ESPNCache:
             summaries = {event: item["data"] for (sport, event), item in self.summaries.items() if sport == league and now - item["updated"] <= settings["sports_max_age"] * 60}
             current = live_games(feed["data"], settings.get("teams", []), league, summaries)
             games.extend(current)
+            games.extend(upcoming_games(feed["data"], settings.get("teams", []), league))
             if needs_summary:
                 for game in current:
                     key = (league, game["event_id"])
@@ -147,6 +148,8 @@ class ESPNCache:
                     raise ValueError("Invalid ESPN scoreboard")
                 feed.update(data=data, updated=time.monotonic(), failures=0, status="Current")
                 live = any(e.get("status", {}).get("type", {}).get("state") == "in" for e in data["events"])
+                scheduled_teams = [{"league": league, "id": c.get("team", {}).get("id")} for e in data["events"] for competition in e.get("competitions", []) for c in competition.get("competitors", [])]
+                live = live or bool(upcoming_games(data, scheduled_teams, league))
                 feed["next"] = time.monotonic() + (LIVE_REFRESH_SECONDS if live else 120)
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError):
             feed["failures"] += 1

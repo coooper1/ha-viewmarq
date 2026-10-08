@@ -1,3 +1,7 @@
+# 0.5.2 — Automatic pregame countdown
+
+Editable pregame pages count down from ESPN scheduled start times during the two hours before a selected game. The countdown includes seconds and ESPN broadcaster names, joins everyday rotation two hours before kickoff, and takes over fifteen minutes before kickoff in sports-only mode. Everyday pages return after the live game. Postponed/canceled events are excluded; a scheduled game awaiting ESPN live status shows Awaiting start for at most fifteen minutes. Priority alerts continue to override.
+
 # 0.5.1 — Faster live sports updates
 
 Live ESPN scoreboards and requested game statistics refresh every five seconds instead of thirty. Inactive leagues retain the two-minute interval, shared caching, bounded requests and error backoff. Visible sports pages update on the next display tick; other pages keep their configured rotation. ESPN publishing delays still apply.

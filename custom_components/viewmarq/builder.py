@@ -4,10 +4,11 @@ from copy import deepcopy
 import json
 import math
 import textwrap
+from datetime import datetime
 
 from .content import clean, usable, BINARY_MEANINGS, active_alerts, paginate
 from .protocol import layout, page_message, FONTS
-from .sports_data import SPORT_FIELDS
+from .sports_data import SPORT_FIELDS, COUNTDOWN_FIELDS
 from .weather_data import WEATHER_FIELDS, reading, nws_alerts
 
 PAGE_TYPES = {"text": "Text", "clock": "Clock and date", "weather": "Weather", "sports": "Live sports", "entity": "Home Assistant entity", "status": "External status", "alerts": "Active alert list", "custom": "Custom layout"}
@@ -21,6 +22,8 @@ PAGE_TYPES["weather_detail"] = "Detailed weather"
 PAGE_TYPES["weather_compact"] = "Compact weather + time"
 PAGE_TYPES.update(weather_alert="Weather alert layout", sensor_alert="Sensor alert layout")
 PAGE_TYPES["football"] = "Football possession and downs"
+PAGE_TYPES["pregame"] = "Pregame countdown (two hours)"
+FIELDS.update(COUNTDOWN_FIELDS)
 FIELDS.update(nws_event="Weather alert: event", nws_until="Weather alert: expires",
               nws_area="Weather alert: affected areas", nws_headline="Weather alert: headline",
               nws_instruction="Weather alert: instructions", nws_severity="Weather alert: severity")
@@ -68,6 +71,9 @@ def new_page(kind, page_id, settings=None):
                                 ("heat_index", 1, 8, 8, "H"), ("feels_like", 1, 16, 8, "F"))],
         "sports": [field("match_score"), field("game_status", 1)],
         "football": [field("match_score"), {**field("football_play", 1), "color_mode": "possession"}],
+        "pregame": [{**field("game_matchup"), "width": 12, "align": "left"},
+                    {**field("game_broadcast"), "column": 12, "width": 12, "align": "right"},
+                    field("game_countdown", 1)],
         "entity": [field("entity_name"), field("entity_value", 1)],
         "status": [field("status_text", height=0)],
         "alerts": [field("alert_text", height=0)],
@@ -240,6 +246,9 @@ def field_value(item, page, settings, get_state, now, record):
     source = item["source"]
     if source == "text":
         value = item.get("text", "")
+    elif source == "game_countdown" and record.get("start"):
+        seconds = max(0, math.ceil((datetime.fromisoformat(record["start"]) - now).total_seconds()))
+        value = f"Starts in {seconds // 3600}:{seconds // 60 % 60:02}:{seconds % 60:02}" if seconds else "Awaiting start"
     elif source == "clock":
         value = now.strftime("%I:%M %p").lstrip("0") if page.get("time_format", settings["time_format"]) == "12-hour" else now.strftime("%H:%M")
     elif source == "date":
@@ -344,6 +353,8 @@ def render_page(page, settings, model, get_state, now, record):
 
 
 def render_pages(settings, model, get_state, now, games, statuses=(), alerts=()):
+    upcoming = [g for g in games if g.get("state") == "pre"]
+    games = [g for g in games if g.get("state") != "pre"]
     result = []
     for page in effective_pages(settings):
         if page["type"] in ("weather_alert", "sensor_alert"):
@@ -351,7 +362,11 @@ def render_pages(settings, model, get_state, now, games, statuses=(), alerts=())
         if not visible(page, get_state, bool(games)):
             continue
         has_sports = page["type"] == "sports" or any(f["source"] in SPORT_FIELDS for f in page["fields"])
-        if has_sports:
+        if page["type"] == "pregame" or any(f["source"] in COUNTDOWN_FIELDS for f in page["fields"]):
+            records = [game for game in upcoming if not page.get("teams") or game["team_key"] in page["teams"]]
+            if games:
+                records = []
+        elif has_sports:
             records = [game for game in games if not page.get("teams") or game["team_key"] in page["teams"]]
             if page["type"] == "football":
                 records = [game for game in records if game.get("league", game.get("fields", {}).get("league")) in ("NFL", "NCAAF")]
@@ -374,8 +389,9 @@ def render_pages(settings, model, get_state, now, games, statuses=(), alerts=())
             records = [{"id": "main", "fields": {}}]
         for record in records:
             result.extend(render_page(page, settings, model, get_state, now, record))
-    if games and settings.get("sports_mode") == "only":
-        sports_ids = {p["id"] for p in effective_pages(settings) if p["type"] == "sports" or any(f["source"] in SPORT_FIELDS for f in p["fields"])}
+    pregame_takeover = any((datetime.fromisoformat(game["start"]) - now).total_seconds() <= 900 for game in upcoming)
+    if (games or pregame_takeover) and settings.get("sports_mode") == "only":
+        sports_ids = {p["id"] for p in effective_pages(settings) if p["type"] in ("sports", "pregame") or any(f["source"] in SPORT_FIELDS or f["source"] in COUNTDOWN_FIELDS for f in p["fields"])}
         selected = [frame for frame in result if frame.page_id in sports_ids]
         if selected:
             result = selected
@@ -467,6 +483,7 @@ def sample_frames(page, settings, model, get_state, now):
         for name, value in zip(("total_yards", "passing_yards", "rushing_yards", "first_downs", "rebounds", "assists", "field_goal_pct", "turnovers"), stats):
             values[f"{side}_{name}"] = str(value)
     values["league"] = "NCAAF"
+    values.update(game_matchup="HOME vs AWAY", game_countdown="Starts in 0:14:15", game_broadcast="Sample TV")
     values.update(football_play="HOME 2nd & 7 @ HOME 35", possession_side="team")
     values.update(nws_event="TEST Tornado Warning", nws_until="TEST Until 4:30 PM", nws_area="Example area", nws_headline="TEST warning headline", nws_instruction="TEST instructions", nws_severity="TEST Severe")
     values.update(match_score="HOME 14 - AWAY 7", team_abbr="HOME", opponent_abbr="AWAY", home_abbr="HOME", away_abbr="AWAY", team_name="Home team", opponent_name="Away team", home_name="Home team", away_name="Away team", team_score="14", opponent_score="7", home_score="14", away_score="7", game_clock="04:32", game_period="Q2", game_status="Q2 04:32", down_distance="2nd & 7", yard_line="HOME 35", possession="HOME", status_text="Sample status message", alert_text="Sample alert")
