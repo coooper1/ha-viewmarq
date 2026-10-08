@@ -10,6 +10,7 @@ from homeassistant.helpers import selector
 from .const import DEFAULTS, DOMAIN
 from .protocol import Modbus, ProtocolError, inspect, dimensions, FONTS, layout
 from .espn import LEAGUES, FAVORITES, team_choices
+from .builder import effective_pages, validate_pages
 
 
 def identify(config):
@@ -72,7 +73,10 @@ class ViewMarqOptionsFlow(config_entries.OptionsFlow):
         return {**DEFAULTS, **self.config_entry.options}
 
     async def async_step_init(self, user_input=None):
-        return self.async_show_menu(step_id="init", menu_options=["content", "binary_alerts", "sports", "add_team", "sensor_override", "appearance", "add_alert", "remove_alert"])
+        return self.async_show_menu(step_id="init", menu_options=["page_editor", "binary_alerts", "sports", "add_team", "sensor_override", "appearance", "add_alert", "remove_alert"])
+
+    async def async_step_page_editor(self, user_input=None):
+        return self.async_abort(reason="open_editor")
 
     async def async_step_sports(self, user_input=None):
         catalog = {f"{t['league']}:{t['id']}": t for t in [*FAVORITES, *self.settings["teams"]]}
@@ -163,8 +167,14 @@ class ViewMarqOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_appearance(self, user_input=None):
         s = self.settings
+        errors = {}
         if user_input is not None:
-            return self.async_create_entry(title="", data={**self.config_entry.options, **user_input})
+            try:
+                validate_pages(effective_pages(s), {**s, **user_input}, self.config_entry.data["model"])
+            except ValueError:
+                errors["base"] = "invalid_layout"
+            else:
+                return self.async_create_entry(title="", data={**self.config_entry.options, **user_input})
         return self.async_show_form(step_id="appearance", data_schema=vol.Schema({
             vol.Required("font", default=s["font"]): choices([key for key, (_, _, height) in FONTS.items() if height <= dimensions(self.config_entry.data["model"])[0] * 8]),
             vol.Required("alignment", default=s["alignment"]): choices(["left", "center", "right"]),
@@ -173,7 +183,7 @@ class ViewMarqOptionsFlow(config_entries.OptionsFlow):
             vol.Required("sports_color", default=s["sports_color"]): choices(["amber", "green", "red"]),
             vol.Required("scroll", default=s["scroll"]): choices(["static", "left"]),
             vol.Required("speed", default=s["speed"]): choices(["slow", "medium", "fast"]),
-        }))
+        }), errors=errors)
 
     async def async_step_add_alert(self, user_input=None):
         errors = {}

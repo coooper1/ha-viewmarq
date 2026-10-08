@@ -12,10 +12,10 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import dt as dt_util
 
 from .const import DEFAULTS, DOMAIN
-from .content import Rotation, pages, active_alerts, paginate
+from .builder import Player, compose, effective_pages, new_page
 from .protocol import Modbus, send, layout
 from .espn import ESPNCache
-from .status_feed import status_pages
+from .status_feed import records
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,9 +26,7 @@ class DisplayHub:
         self.settings = {**DEFAULTS, **entry.options}
         self.geometry = layout(entry.data["model"], self.settings["font"])
         self.settings.update({key: self.geometry[key] for key in ("rows", "columns")})
-        self.rotation = Rotation()
-        self.top_rotation = Rotation()
-        self.alert_rotation = Rotation()
+        self.rotation = Player()
         self.espn = hass.data.setdefault(f"{DOMAIN}_espn", ESPNCache(hass))
         self.sports_status = {}
         self.last = None
@@ -64,42 +62,27 @@ class DisplayHub:
             return
         self.task = self.hass.async_create_task(self.update())
 
-    def transmit(self, text, color):
-        config = {**self.entry.data, "color": color, "font": self.settings["font"], "alignment": self.settings["alignment"], "scroll": self.settings["scroll"], "speed": self.settings["speed"], "page_layout": self.settings["scroll"] == "static" or isinstance(color, tuple)}
+    def transmit(self, frame):
+        config = {**self.entry.data, "color": frame.color, "font": frame.font, "alignment": frame.alignment, "scroll": frame.motion, "speed": frame.speed, "page_layout": frame.motion == "static" or isinstance(frame.color, tuple)}
+        text = frame.text
         if not config["page_layout"]:
-            text = text.replace("\n", " ").replace("°", chr(96))
+            text = " ".join(text.split()).replace("°", chr(96))
         with socket.create_connection((config["host"], config["port"]), timeout=2) as sock:
             return send(Modbus(sock, config["unit_id"]), config, text)
+
+    def frames(self, settings=None):
+        settings = settings or self.settings
+        games, status = self.espn.games(settings)
+        frames = compose(settings, self.entry.data["model"], self.hass.states.get, dt_util.now(), games, records(self.hass, self.entry.entry_id))
+        return frames, status
 
     async def update(self):
         now = time.monotonic()
         if now < self.next_attempt:
             return
         try:
-            if self.settings["enabled"]:
-                ordinary, alerts = pages(self.settings, self.hass.states.get, dt_util.now())
-                sports_pages, self.sports_status = self.espn.pages(self.settings)
-                ordinary.extend(sports_pages)
-                ordinary.extend(status_pages(self.hass, self.entry.entry_id, self.settings))
-                active_items = active_alerts(self.settings, self.hass.states.get)
-                urgent = [(text, self.settings["alert_color"]) for text, layout, _ in active_items if layout == "full-page"]
-                if urgent:
-                    urgent_pages = paginate(urgent, self.settings["rows"], self.settings["columns"])
-                    selected = self.rotation.select([], urgent_pages, {**self.settings, "alert_priority": True}, now)
-                elif alerts and self.settings["rows"] >= 2:
-                    split = {**self.settings, "rows": 1, "alert_priority": False}
-                    top, bottom = pages(split, self.hass.states.get, dt_util.now())
-                    sports_top, _ = self.espn.pages(split)
-                    top.extend(sports_top)
-                    top.extend(status_pages(self.hass, self.entry.entry_id, split))
-                    top_page = self.top_rotation.select(top, [], split, now)
-                    bottom_page = self.alert_rotation.select(bottom, [], split, now)
-                    padding = self.settings["rows"] - 2
-                    selected = (top_page[0] + "\n" * (padding + 1) + bottom_page[0], (top_page[1],) + (self.settings["color"],) * padding + (bottom_page[1],))
-                else:
-                    selected = self.rotation.select(ordinary, alerts, {**self.settings, "alert_priority": False}, now)
-            else:
-                selected = (" ", self.settings["color"])
+            frames, self.sports_status = self.frames()
+            selected = self.rotation.choose(frames, now)
             # Refresh below any configured device heartbeat, but avoid restarting scrolling each second.
             heartbeat = self.entry.data.get("heartbeat_seconds", 0)
             refresh = max(1, heartbeat / 2) if heartbeat else 60
@@ -108,11 +91,9 @@ class DisplayHub:
             async with self.io_limit:
                 if self.stopped:
                     return
-                await self.hass.async_add_executor_job(self.transmit, *selected)
-            if selected != self.last:
-                self.rotation.deadline = time.monotonic() + self.settings["dwell"]
+                await self.hass.async_add_executor_job(self.transmit, selected)
             self.last, self.last_sent = selected, time.monotonic()
-            self.displayed = selected[0].strip()
+            self.displayed = selected.text
             self.status = "Connected" if self.settings["enabled"] else "Paused"
             self.failures = 0
         except (OSError, ValueError, RuntimeError) as error:
@@ -125,4 +106,16 @@ class DisplayHub:
 
     @callback
     def save(self, key, value):
-        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, key: value})
+        changes = {key: value}
+        if key == "quick_message" and self.settings.get("pages") is not None:
+            pages = effective_pages(self.settings)
+            page = next((p for p in pages if p["id"] == "quick-message"), None)
+            if page:
+                pages.remove(page)
+            if value.strip():
+                page = new_page("text", "quick-message", self.settings)
+                page["name"] = "Quick message"
+                page["fields"][0]["text"] = value
+                pages.insert(0, page)
+            changes["pages"] = pages
+        self.hass.config_entries.async_update_entry(self.entry, options={**self.entry.options, **changes})

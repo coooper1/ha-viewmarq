@@ -39,3 +39,12 @@ def status_pages(hass, entry_id, settings):
         if feeds[source][1] <= now:
             feeds.pop(source)
     return paginate([(item[0], item[2] or settings["color"]) for item in feeds.values()], settings["rows"], settings["columns"])
+
+
+def records(hass, entry_id):
+    feeds = hass.data.get(f"{DOMAIN}_status_feeds", {}).get(entry_id, {})
+    now = time.monotonic()
+    for source in list(feeds):
+        if feeds[source][1] <= now:
+            feeds.pop(source)
+    return [{"id": source, "fields": {"status_text": value[0]}, "color": value[2]} for source, value in feeds.items()]

@@ -32,7 +32,8 @@
           "sensor_override": "Customize one alert (optional)",
           "appearance": "Display appearance",
           "add_alert": "Advanced: add a custom rule",
-          "remove_alert": "Advanced: remove a custom rule"
+          "remove_alert": "Advanced: remove a custom rule",
+          "page_editor": "Page builder"
         }
       },
       "content": {
@@ -121,11 +122,13 @@
     "error": {
       "too_long": "Keep the message list under 10,000 characters.",
       "invalid_rule": "Use a finite numeric threshold for above/below and a message of 1 to 190 characters.",
-      "sports_unavailable": "ESPN is unavailable right now. Your existing teams are unchanged. Try again later."
+      "sports_unavailable": "ESPN is unavailable right now. Your existing teams are unchanged. Try again later.",
+      "invalid_layout": "This font does not fit one or more saved fields. Adjust their widths in the ViewMarq page builder first."
     },
     "abort": {
       "no_alerts": "No alerts have been added yet.",
-      "no_sensors": "Choose alert sensors first."
+      "no_sensors": "Choose alert sensors first.",
+      "open_editor": "Open the ViewMarq sidebar to add, arrange and customize pages. [Open page builder](/viewmarq)"
     }
   }
 }

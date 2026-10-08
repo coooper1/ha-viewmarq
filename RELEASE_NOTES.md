@@ -1,23 +1,9 @@
-# Release 0.2.3
+# 0.3.0 — Persistent page builder
 
-- Add team to display now saves the added team immediately, preserving existing teams and other settings.
-- Clear saved confirmation removes ambiguity between adding a team and editing a draft.
-- Includes automatic league catalog loading and team-name search.
-- Frontend-only: refresh the ViewMarq page after HACS updates the files. No core restart is needed for this fix.
-
-# Release 0.2.2
-
-- Team lists load automatically when the league changes.
-- Search any part of a team name, including Thunder for Oklahoma City Thunder.
-- Clear stale league choices and ignore out-of-order catalog responses.
-- Frontend-only fix: refresh the ViewMarq page after updating; no core restart needed for this change.
-
-# Release 0.2.1
-
-- Bundled per-display editor with draft layout and live acknowledged-content views.
-- Automatic binary-sensor alerts, nonblocking routine row, optional priority overrides.
-- Built-in ESPN team selection and shared polling, with no-game/stale hiding.
-- Date/year and 12/24-hour controls, degree glyph, static pagination, supported font/alignment choices.
-- Native local ViewMarq brand icon and expiring external status action.
-
-- Separate amber sports color, red alerts and green information.
+- Add, delete, duplicate, reorder and enable per-display pages with field grids, fonts, colors, durations, motion and visibility conditions.
+- Clock/date, weather, text, live sports, entities, read-only Now Playing, active alerts, external status and custom templates.
+- Shared renderer for preview and real sign; explicit editor-only sample previews.
+- Actual ESPN game fields, on-demand bounded summary cache and configurable live-game rotation policy.
+- Stable page identity prevents clock/score updates from resetting dwell. Routine alerts keep normal content rotating; hazards retain priority.
+- Existing options migrate into persistent pages while preserving teams, sensors and display identities.
+- Backend tests cover persistence, migration, rendering, timing, alert recovery, unavailable stats and media visibility; browser checks exercise page CRUD and preview.

@@ -3,6 +3,10 @@ from .const import DOMAIN, PLATFORMS
 
 
 async def async_setup_entry(hass, entry):
+    from .builder import effective_pages
+    from .const import DEFAULTS
+    if entry.options.get("pages") is None:
+        hass.config_entries.async_update_entry(entry, options={**entry.options, "pages": effective_pages({**DEFAULTS, **entry.options})})
     from .hub import DisplayHub
     from .panel import register
     from .status_feed import register as register_status

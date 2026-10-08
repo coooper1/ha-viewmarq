@@ -8,5 +8,5 @@ DEFAULTS = {
     "binary_sensors": [], "sensor_overrides": {},
     "color": "green", "alert_color": "red", "scroll": "static", "speed": "medium",
     "font": "standard", "alignment": "center",
-    "sports_color": "amber",
+    "sports_color": "amber", "sports_mode": "interleave", "pages": None,
 }

@@ -6,6 +6,8 @@ import aiohttp
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .content import clean, paginate
+from .sports_data import live_games, SUMMARY_FIELDS
+from .builder import effective_pages
 
 LEAGUES = {
     "NCAAF": ("College football", "football/college-football"),
@@ -71,6 +73,46 @@ class ESPNCache:
         self.hass = hass
         self.feeds = {}
         self.limit = asyncio.Semaphore(2)
+        self.summaries = {}
+
+    def games(self, settings):
+        # Reuse league cache refresh and freshness policy across every display.
+        _, statuses = self.pages(settings)
+        now = time.monotonic()
+        needs_summary = any(p.get("enabled", True) and any(f["source"] in SUMMARY_FIELDS for f in p["fields"]) for p in effective_pages(settings))
+        games = []
+        for league, feed in self.feeds.items():
+            if not feed["updated"] or now - feed["updated"] > settings["sports_max_age"] * 60:
+                continue
+            summaries = {event: item["data"] for (sport, event), item in self.summaries.items() if sport == league and now - item["updated"] <= settings["sports_max_age"] * 60}
+            current = live_games(feed["data"], settings.get("teams", []), league, summaries)
+            games.extend(current)
+            if needs_summary:
+                for game in current:
+                    key = (league, game["event_id"])
+                    if key not in self.summaries and len(self.summaries) >= 200:
+                        continue
+                    item = self.summaries.setdefault(key, {"data": {}, "updated": 0, "next": 0, "used": now, "task": None, "failures": 0})
+                    item["used"] = now
+                    if now >= item["next"] and (item["task"] is None or item["task"].done()):
+                        item["task"] = self.hass.async_create_task(self.refresh_summary(key, item))
+        for key, item in list(self.summaries.items()):
+            if now - item["used"] > 600 and (item["task"] is None or item["task"].done()):
+                del self.summaries[key]
+        return games, statuses
+
+    async def refresh_summary(self, key, item):
+        try:
+            async with self.limit:
+                async with async_get_clientsession(self.hass).get(BASE + LEAGUES[key[0]][1] + "/summary", params={"event": key[1]}, timeout=aiohttp.ClientTimeout(total=8)) as response:
+                    response.raise_for_status()
+                    data = await response.json()
+                if not isinstance(data, dict):
+                    raise ValueError("Invalid ESPN summary")
+                item.update(data=data, updated=time.monotonic(), next=time.monotonic() + 30, failures=0)
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, KeyError):
+            item["failures"] += 1
+            item["next"] = time.monotonic() + min(300, 30 * 2 ** min(item["failures"] - 1, 4))
 
     def pages(self, settings):
         pages_out, statuses = [], {}

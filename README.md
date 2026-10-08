@@ -1,11 +1,17 @@
 # ViewMarq for Home Assistant
 
-Control AutomationDirect ViewMarq LED signs over local Modbus TCP. Each display has independent settings and a live acknowledged-content view. Version 0.2.1 adds a bundled ViewMarq sidebar editor, simple sensor alerts and built-in ESPN scores.
+Control AutomationDirect ViewMarq LED signs over local Modbus TCP. Each display has independent settings and a live acknowledged-content view. Version 0.3.0 adds a persistent visual page builder, configurable live-game layouts and read-only Now Playing pages.
 
 ## Everyday use
 
-Open **ViewMarq** in the HA sidebar and choose a sign. Type messages, select weather and alert sensors, choose sports teams, and **Save to display**. Settings apply through an integration reload; they do not restart HA.
+Open **ViewMarq** in the HA sidebar and choose a sign. Add pages, edit their fields, arrange their order, select alert sensors and sports teams, then **Save to display**. Settings apply through an integration reload; they do not restart HA.
 
+- Add, delete, duplicate, reorder or disable pages independently per display. Templates cover text, clock/date, weather, live sports, HA entities, Now Playing, external status, active alerts and custom layouts. There is no fixed preset page count; collections are bounded to 1,000 pages / 512 KiB for runtime safety.
+- Each page supports its own font/size, color, duration, motion, field alignment and visibility condition. Position fields by row/column with explicit width/height; overlapping fields are rejected. Logical rows and long text continue across frames. Optional labels and HA scalar attributes allow custom layouts without code.
+- Now Playing reads a chosen HA media player’s actual title, artist, album, source, app, station and playback state. Idle/off and paused visibility are configurable; unavailable players are hidden. It never controls playback or fabricates missing metadata.
+- Sports pages select all or particular saved teams and expose team/opponent/home/away names and scores, game clock/status, football down/position/yardage and available basketball game statistics. Missing fields remain blank. Game summaries are fetched only when requested by configured stat fields, with a shared bounded cache; season averages are never substituted for game totals.
+- Choose interleaving, sports-only during games, or hiding clock pages during games. Urgent alerts still override; ordinary pages resume afterward.
+- Existing settings migrate once into saved pages without losing teams, alert selections or entry identity. An intentionally empty page list stays empty. The quick-message entity continues to manage its own page.
 - Stationary pages default to five seconds. Long messages wrap into additional pages instead of silently losing text.
 - Choose 12-hour AM/PM or 24-hour time and date presets with the year. Dates use HA's timezone.
 - Weather pairs temperature and condition. The degree symbol maps to the manufacturer's documented ASCII back-apostrophe glyph.
@@ -15,7 +21,7 @@ Open **ViewMarq** in the HA sidebar and choose a sign. Type messages, select wea
 - Information is green, alerts are red and sports are amber by default, independently configurable.
 - Configure supported font sizes, alignment, colors, duration and optional left scrolling. Mixed normal/alert rows remain stationary.
 
-The draft preview uses the production text formatter, geometry, wrapping and colors. Its browser typeface is approximate, not a pixel-perfect copy of the device font. The separate live view shows the last command acknowledged by the real sign, not a camera image. Drafts never write to the sign until saved.
+The draft preview uses the production text formatter, geometry, wrapping and colors. Its browser typeface is approximate, not a pixel-perfect copy of the device font. The separate live view shows the last command acknowledged by the real sign, not a camera image. Drafts never write to the sign until saved. The explicit **Sample selected page** checkbox uses marked editor-only example data to design inactive sports/media layouts; those samples never enter the hardware queue.
 
 ## HACS and installation
 
