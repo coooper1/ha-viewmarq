@@ -46,18 +46,21 @@ class ViewMarqPanel extends HTMLElement {
       <main><div class="row"><label>Display<select id="display">${this.data.displays.map(x=>`<option value="${esc(x.id)}" ${x.id===d.id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></label><div class="meta">${esc(d.model)} · ${d.geometry.pixel_width} × ${d.geometry.pixel_height} pixels<br>${esc(d.host)}</div></div>
       <div class="grid"><form id="editor"><section class="card"><h2>What to show</h2><label class="check"><input name="enabled" type="checkbox" ${s.enabled?'checked':''}>Display enabled</label><label>Quick message<input name="quick_message" type="text" maxlength="190" value="${esc(s.quick_message)}" placeholder="Type something for this sign"></label><label>More messages<textarea name="messages">${esc(s.messages)}</textarea></label><p class="muted">One message per line. Long messages become additional pages.</p><label class="check"><input name="show_clock" type="checkbox" ${s.show_clock?'checked':''}>Show clock and date</label><div class="row">${this.select('time_format','Clock',[{value:'12-hour',label:'12-hour (AM/PM)'},{value:'24-hour',label:'24-hour'}],s.time_format)}${this.select('date_style','Date',[{value:'weekday-year',label:'Thu 10/08/2026'},{value:'full-date',label:'Oct 08, 2026'},{value:'date-only',label:'10/08/2026'},{value:'iso-date',label:'2026-10-08'},{value:'weekday-date',label:'Thu 10/08'},{value:'time-only',label:'Time only'}],s.date_style)}</div>${this.select('weather_entity','Weather',[{value:'',label:'No weather'},...states.filter(x=>x.entity_id.startsWith('weather.')).map(x=>({value:x.entity_id,label:x.attributes.friendly_name||x.entity_id}))],s.weather_entity)}</section>
       <section class="card"><h2>Door and sensor alerts</h2><p class="muted">Select sensors. Their names and meanings become the messages. Routine alerts use the bottom row; smoke, gas, CO, unsafe and wet alerts use the whole sign. Alerts clear automatically.</p><input id="sensor-search" type="search" aria-label="Find alert sensors" placeholder="Find a door or sensor"><div class="sensor-list">${sensorRows.map(x=>`<label class="check sensor-row" data-name="${esc(x.name.toLowerCase())}"><input type="checkbox" name="binary_sensor" value="${esc(x.id)}" ${s.binary_sensors.includes(x.id)?'checked':''}><span>${esc(x.name)}</span></label>`).join('')}</div><p class="muted"><a href="/config/integrations/integration/viewmarq#config_entry=${esc(d.id)}">Optional alert wording, priority and advanced rules</a></p></section>
-      <section class="card"><h2>Live sports</h2><p class="muted">ESPN scores appear automatically during games. No game means no sports page.</p><div id="teams-list">${[...this.teamMap].map(([key,t])=>this.teamCheck(key,t,s.teams.some(x=>x.league===t.league&&x.id===t.id))).join('')}</div><details><summary>Add another team</summary><label>League<select id="league">${this.options(this.data.leagues,'NFL')}</select></label><button type="button" id="load-teams">Find teams</button><label id="team-picker-wrap" hidden>Team<select id="team-picker"></select></label><button type="button" id="add-team" hidden>Add selected team</button></details><label>Hide scores after minutes without an update<input name="sports_max_age" type="number" min="1" max="15" value="${s.sports_max_age}"></label></section>
+      <section class="card"><h2>Live sports</h2><p class="muted">ESPN scores appear automatically during games. No game means no sports page.</p><div id="teams-list">${[...this.teamMap].map(([key,t])=>this.teamCheck(key,t,s.teams.some(x=>x.league===t.league&&x.id===t.id))).join('')}</div><details id="team-details"><summary>Add another team</summary><label>League<select id="league">${this.options(this.data.leagues,'NFL')}</select></label><button type="button" id="load-teams">Find teams</button><div id="team-picker-wrap" hidden><label>Search teams<input id="team-search" type="search" placeholder="Search any part of a name, e.g. Thunder"></label><p id="team-count" class="muted"></p><label>Team<select id="team-picker"></select></label></div><button type="button" id="add-team" hidden>Add selected team</button></details><label>Hide scores after minutes without an update<input name="sports_max_age" type="number" min="1" max="15" value="${s.sports_max_age}"></label></section>
       <section class="card"><h2>Appearance</h2><div class="row">${this.select('font','Text size',fonts,s.font)}${this.select('alignment','Alignment',['left','center','right'],s.alignment)}</div><div class="row">${this.select('color','Normal color',['green','amber','red'],s.color)}${this.select('alert_color','Alert color',['red','amber','green'],s.alert_color)}</div>${this.select('sports_color','Sports color',['amber','green','red'],s.sports_color)}<label>Seconds per page<input name="dwell" type="number" min="3" max="300" value="${s.dwell}"></label><details><summary>Motion options</summary>${this.select('scroll','Text motion',[{value:'static',label:'Stationary pages'},{value:'left',label:'Scroll left'}],s.scroll)}${this.select('speed','Scroll speed',['slow','medium','fast'],s.speed)}<p class="muted">Mixed normal/alert rows stay stationary. Large fonts on a two-row sign leave room for one line; routine alerts then join the page rotation.</p></details></section></form>
       <aside class="sticky"><section class="card"><h2>Layout preview</h2><div id="draft-sign" class="sign"></div><div class="toolbar"><button id="previous" aria-label="Previous preview page">←</button><span id="page-label"></span><button id="next" aria-label="Next preview page">→</button></div><p class="muted">Uses the sign's detected size and the same text wrapping and colors as the sender. Typeface is an approximation; this is not a camera view. Live sensor states are used.</p><div class="toolbar"><button class="primary" id="save">Save to display</button><button id="discard">Discard edits</button></div><div id="notice" class="notice" role="status">Settings changes do not restart Home Assistant.</div></section><section class="card"><h2>Last accepted by the real sign</h2><div id="live-sign" class="sign"></div><p id="live-status" class="muted">${esc(d.status)}</p><p class="muted">Updates automatically after the sign acknowledges a command. Physical appearance still needs a glance at the sign.</p></section></aside></div></main>`;
     this.shadowRoot.querySelector('ha-menu-button').hass=this._hass;
     this.shadowRoot.querySelector('#display').onchange=async event=>{if(this.dirty&&!confirm('Discard unsaved changes for this display?')){event.target.value=this.selected.id;return;}this.selected=this.data.displays.find(x=>x.id===event.target.value);this.page=0;this.render();await this.preview();};
-    this.shadowRoot.querySelector('#editor').oninput=event=>{if(event.target.id==='sensor-search'){const q=event.target.value.toLowerCase();this.shadowRoot.querySelectorAll('.sensor-row').forEach(x=>x.hidden=!x.dataset.name.includes(q));return;}if(event.target.id==='league'||event.target.id==='team-picker')return;this.dirty=true;this.message('Unsaved changes');clearTimeout(this.previewTimer);this.previewTimer=setTimeout(()=>this.preview(),250);};
+    this.shadowRoot.querySelector('#editor').oninput=event=>{if(event.target.id==='sensor-search'){const q=event.target.value.toLowerCase();this.shadowRoot.querySelectorAll('.sensor-row').forEach(x=>x.hidden=!x.dataset.name.includes(q));return;}if(['league','team-picker','team-search'].includes(event.target.id))return;this.dirty=true;this.message('Unsaved changes');clearTimeout(this.previewTimer);this.previewTimer=setTimeout(()=>this.preview(),250);};
     this.shadowRoot.querySelector('#editor').onsubmit=e=>e.preventDefault();
     this.shadowRoot.querySelector('#previous').onclick=()=>{this.page=Math.max(0,this.page-1);this.showPreview();};
     this.shadowRoot.querySelector('#next').onclick=()=>{this.page=Math.min((this.previews?.pages.length||1)-1,this.page+1);this.showPreview();};
     this.shadowRoot.querySelector('#save').onclick=()=>this.save();
     this.shadowRoot.querySelector('#discard').onclick=()=>{this.render();this.preview();};
     this.shadowRoot.querySelector('#load-teams').onclick=()=>this.findTeams();
+    this.shadowRoot.querySelector('#league').onchange=()=>this.findTeams();
+    this.shadowRoot.querySelector('#team-search').oninput=()=>this.filterTeams();
+    this.shadowRoot.querySelector('#team-details').ontoggle=event=>{if(event.target.open&&!this.catalog)this.findTeams();};
     this.shadowRoot.querySelector('#add-team').onclick=()=>this.addTeam();
     this.draw('#live-sign',d.displayed_text,d.colors,d.geometry,s.alignment);
   }
@@ -95,10 +98,31 @@ class ViewMarqPanel extends HTMLElement {
   }
   async findTeams() {
     const button=this.shadowRoot.querySelector('#load-teams');button.disabled=true;
-    try {this.catalogLeague=this.shadowRoot.querySelector('#league').value;this.catalog=await this.call('teams',{league:this.catalogLeague});this.shadowRoot.querySelector('#team-picker').innerHTML=this.options(this.catalog,'');this.shadowRoot.querySelector('#team-picker-wrap').hidden=false;this.shadowRoot.querySelector('#add-team').hidden=false;}
-    catch(error){this.message(error.message||String(error));}finally{button.disabled=false;}
+    const league=this.shadowRoot.querySelector('#league').value;
+    const request=this.catalogRequest=(this.catalogRequest||0)+1;
+    this.catalog=null; this.catalogLeague=league;
+    this.shadowRoot.querySelector('#team-picker-wrap').hidden=true;
+    this.shadowRoot.querySelector('#add-team').hidden=true;
+    this.message(`Loading ${league} teams…`);
+    try {
+      const catalog=await this.call('teams',{league});
+      if(request!==this.catalogRequest)return;
+      this.catalog=catalog;this.shadowRoot.querySelector('#team-search').value='';
+      this.shadowRoot.querySelector('#team-picker-wrap').hidden=false;
+      this.shadowRoot.querySelector('#add-team').hidden=false;
+      this.filterTeams();this.message(`${league}: ${catalog.length} teams loaded. Search by name.`);
+    } catch(error){if(request===this.catalogRequest)this.message(error.message||String(error));}
+    finally{if(request===this.catalogRequest)button.disabled=false;}
+  }
+  filterTeams() {
+    const query=this.shadowRoot.querySelector('#team-search').value.trim().toLowerCase();
+    const matches=(this.catalog||[]).filter(t=>t.label.toLowerCase().includes(query));
+    this.shadowRoot.querySelector('#team-picker').innerHTML=this.options(matches,'');
+    this.shadowRoot.querySelector('#team-count').textContent=`${this.catalogLeague}: ${matches.length} of ${this.catalog?.length||0} teams`;
+    this.shadowRoot.querySelector('#add-team').disabled=!matches.length;
   }
   addTeam() {
+    if(this.catalogLeague!==this.shadowRoot.querySelector('#league').value)return;
     const id=this.shadowRoot.querySelector('#team-picker').value;const found=this.catalog?.find(x=>x.value===id);if(!found)return;
     const key=`${this.catalogLeague}:${id}`;if(!this.teamMap.has(key)){const team={id,league:this.catalogLeague,name:found.label};this.teamMap.set(key,team);this.shadowRoot.querySelector('#teams-list').insertAdjacentHTML('beforeend',this.teamCheck(key,team,true));}
     else [...this.shadowRoot.querySelectorAll('[name=team]')].find(x=>x.value===key).checked=true;

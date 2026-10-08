@@ -1,3 +1,10 @@
+# Release 0.2.2
+
+- Team lists load automatically when the league changes.
+- Search any part of a team name, including Thunder for Oklahoma City Thunder.
+- Clear stale league choices and ignore out-of-order catalog responses.
+- Frontend-only fix: refresh the ViewMarq page after updating; no core restart needed for this change.
+
 # Release 0.2.1
 
 - Bundled per-display editor with draft layout and live acknowledged-content views.
