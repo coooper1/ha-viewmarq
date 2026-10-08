@@ -112,6 +112,12 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(first[0].text.splitlines()[1], later[0].text.splitlines()[1])
         self.assertEqual(first[0].motion, "static")
         self.assertEqual(first[0].color[0][:12], ("red",) * 12)
+        page["fields"][0]["text"] = "Short"
+        short = self.render()[0]
+        short_later = compose(self.settings, MODEL, self.states.get, NOW + timedelta(seconds=1), [])[0]
+        self.assertNotEqual(short.text.splitlines()[0][:12], short_later.text.splitlines()[0][:12])
+        self.assertEqual(short.text.splitlines()[0][12:], short_later.text.splitlines()[0][12:])
+        page["fields"][0]["text"] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         page["fields"][0]["overflow"] = "pages"
         self.assertEqual(len(self.render()), 3)
         page["fields"][0]["overflow"] = "bad"

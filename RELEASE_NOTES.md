@@ -1,3 +1,7 @@
+# 0.5.5 — Scroll selected fields even when text fits
+
+Choosing Scroll across this field now moves short text as well as overflowing text. Neighboring fields and colors remain in place.
+
 # 0.5.4 — Section navigation
 
 The editor has dedicated Pages, Weather, Alerts, Sports and Display sections. A sticky navigation bar switches sections without losing edits. Field cards collapse to summaries, previews stay visible, and alert/preset editing opens the Pages section automatically.

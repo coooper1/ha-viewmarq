@@ -314,8 +314,8 @@ def render_page(page, settings, model, get_state, now, record):
         text = field_value(item, page, settings, get_state, now, record)
         chunks = []
         for line in text.split("\n"):
-            if item.get("overflow") == "scroll" and len(line) > width:
-                loop = line + "   "
+            if item.get("overflow") == "scroll" and line:
+                loop = line.ljust(width) + "   "
                 offset = int(now.timestamp()) % len(loop)
                 chunks.append((loop + loop)[offset:offset + width])
             else:
