@@ -1,0 +1,20 @@
+{
+  "domain": "viewmarq",
+  "name": "ViewMarq",
+  "version": "0.2.1",
+  "config_flow": true,
+  "documentation": "https://github.com/coooper1/ha-viewmarq",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "requirements": [],
+  "codeowners": [
+    "@coooper1"
+  ],
+  "dependencies": [
+    "frontend",
+    "http",
+    "websocket_api",
+    "panel_custom"
+  ],
+  "issue_tracker": "https://github.com/coooper1/ha-viewmarq/issues"
+}

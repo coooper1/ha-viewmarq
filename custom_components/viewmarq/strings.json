@@ -1,0 +1,131 @@
+{
+  "title": "ViewMarq",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect your ViewMarq",
+        "description": "Read the real display's identity and register settings. Setup starts the information rotation once connected.",
+        "data": {
+          "name": "Display name",
+          "host": "Display IP address",
+          "port": "Modbus TCP port",
+          "unit_id": "Modbus unit ID"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not identify the display. Check its address, port, unit ID, and network connection."
+    },
+    "abort": {
+      "already_configured": "This display is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Customize your display",
+        "menu_options": {
+          "content": "Messages, clock and weather",
+          "binary_alerts": "Choose alert sensors",
+          "sports": "Sports teams",
+          "add_team": "Add another sports team",
+          "sensor_override": "Customize one alert (optional)",
+          "appearance": "Display appearance",
+          "add_alert": "Advanced: add a custom rule",
+          "remove_alert": "Advanced: remove a custom rule"
+        }
+      },
+      "content": {
+        "title": "Rotating information",
+        "description": "Choose your clock, date and weather. Each message appears as a stationary page. Longer messages use additional pages.",
+        "data": {
+          "messages": "Messages (one per line)",
+          "show_clock": "Include date and time",
+          "weather_entity": "Weather entity",
+          "time_format": "Clock style (12-hour includes AM/PM)",
+          "date_style": "Date display"
+        }
+      },
+      "appearance": {
+        "title": "Display appearance",
+        "data": {
+          "color": "Normal text color",
+          "alert_color": "Alert text color",
+          "scroll": "Text motion",
+          "speed": "Scroll speed",
+          "font": "Text size",
+          "alignment": "Text alignment",
+          "sports_color": "Sports text color"
+        }
+      },
+      "add_alert": {
+        "title": "Advanced custom rule",
+        "description": "Use raw HA states: a door binary sensor normally reports on when open; a cover reports open. Messages support {name} and {state}. Unknown/unavailable entities do not trigger alerts. For advanced conditions, select a template helper entity.",
+        "data": {
+          "entity": "Entity to watch",
+          "condition": "Condition",
+          "value": "State or numeric threshold",
+          "message": "Alert message",
+          "presentation": "Where to show this alert"
+        }
+      },
+      "remove_alert": {
+        "title": "Remove an alert",
+        "data": {
+          "rule": "Alert"
+        }
+      },
+      "binary_alerts": {
+        "title": "Choose alert sensors",
+        "description": "Just select the sensors you want to watch. Messages use their names and meanings automatically. Doors and routine updates appear on the bottom row while normal information continues above. Smoke, gas, carbon monoxide, unsafe and wet sensors use the whole display. Unknown or unavailable sensors never create an alert. Remove a selection to stop watching it.",
+        "data": {
+          "binary_sensors": "Sensors to watch"
+        }
+      },
+      "sensor_override": {
+        "title": "Customize one alert",
+        "description": "Optional: choose a watched sensor to change its wording or where it appears.",
+        "data": {
+          "entity": "Sensor"
+        }
+      },
+      "sensor_details": {
+        "title": "Alert appearance",
+        "description": "Automatic uses the sensor type. Leave the message blank to use its name and state automatically. Full-page alerts interrupt normal pages until cleared.",
+        "data": {
+          "presentation": "Where to show this alert",
+          "message": "Custom message (optional)"
+        }
+      },
+      "sports": {
+        "title": "Sports teams",
+        "description": "Scores come directly from ESPN. Only games in progress appear; no-game, unavailable and stale results are hidden. Use Add another sports team for more leagues and teams.",
+        "data": {
+          "teams": "Teams to follow",
+          "sports_max_age": "Hide scores after this many minutes without an update"
+        }
+      },
+      "add_team": {
+        "title": "Add sports teams",
+        "data": {
+          "league": "Sport or league"
+        }
+      },
+      "choose_team": {
+        "title": "Choose your teams",
+        "data": {
+          "teams": "Teams to follow"
+        }
+      }
+    },
+    "error": {
+      "too_long": "Keep the message list under 10,000 characters.",
+      "invalid_rule": "Use a finite numeric threshold for above/below and a message of 1 to 190 characters.",
+      "sports_unavailable": "ESPN is unavailable right now. Your existing teams are unchanged. Try again later."
+    },
+    "abort": {
+      "no_alerts": "No alerts have been added yet.",
+      "no_sensors": "Choose alert sensors first."
+    }
+  }
+}
