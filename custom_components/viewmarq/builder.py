@@ -162,6 +162,8 @@ def validate_pages(pages, settings, model, allow_overlap=False):
                 raise ValueError(f"A field in {page['name']} does not fit its {geometry['columns']}-column font grid")
             if item.get("align") not in (None, "left", "center", "right"):
                 raise ValueError("Invalid field alignment")
+            if item.get("color") not in (None, "green", "amber", "red"):
+                raise ValueError("Invalid field color")
             for key in ("text", "label", "entity", "attribute"):
                 if not isinstance(item.get(key, ""), str) or len(item.get(key, "")) > (10000 if key == "text" else 190):
                     raise ValueError(f"Invalid field {key}")
@@ -263,8 +265,10 @@ def render_page(page, settings, model, get_state, now, record):
         fields.append((item, chunks, width, height))
     category_color = settings["sports_color"] if page["type"] == "sports" else settings["alert_color"] if page["type"] == "alerts" else record.get("color") or settings["color"]
     result, seen = [], set()
+    base_color = page.get("color") or category_color
     for part in range(slices):
         grid = [[" "] * columns for _ in range(logical_rows)]
+        color_grid = [[base_color] * columns for _ in range(logical_rows)]
         for item, chunks, width, height in fields:
             start = min(part * height, max(0, math.ceil(len(chunks) / height) - 1) * height)
             for offset, chunk in enumerate(chunks[start:start + height]):
@@ -272,16 +276,20 @@ def render_page(page, settings, model, get_state, now, record):
                 text = chunk.ljust(width) if align == "left" else chunk.rjust(width) if align == "right" else chunk.center(width)
                 row, col = item.get("row", 0) + offset, item.get("column", 0)
                 grid[row][col:col + width] = list(text)
+                color_grid[row][col:col + width] = [item.get("color") or base_color] * width
         for start_row in range(0, logical_rows, rows):
             lines = ["".join(line).rstrip() for line in grid[start_row:start_row + rows]]
             lines += [""] * (rows - len(lines))
             text = "\n".join(lines)
-            if not text.strip() or text in seen:
+            shades = tuple(tuple(color_grid[start_row + i][:len(line)]) if start_row + i < logical_rows else () for i, line in enumerate(lines))
+            frame_color = base_color if all(c == base_color for line in shades for c in line) else shades
+            signature = (text, frame_color)
+            if not text.strip() or signature in seen:
                 continue
-            seen.add(text)
+            seen.add(signature)
             frame = Frame(f"{page['id']}:{record.get('id', 'main')}:{part}:{start_row}", text,
-                          page.get("color") or category_color, font, "left",
-                          page.get("motion") or settings["scroll"], page.get("speed") or settings["speed"],
+                          frame_color, font, "left",
+                          "static" if isinstance(frame_color, tuple) else page.get("motion") or settings["scroll"], page.get("speed") or settings["speed"],
                           page.get("dwell") or settings["dwell"], page["type"], page["id"], start_row)
             page_message(frame.text, 1, model, frame.color, frame.font, frame.alignment)
             result.append(frame)
@@ -344,14 +352,16 @@ def compose(settings, model, get_state, now, games, statuses=()):
             result.append(frame)
             result.extend(Frame(f"{frame.key}:alert:{i}", text, color, frame.font, "center", dwell=settings["dwell"], kind="Routine alert") for i, (text, color) in enumerate(paginate(routine, 1, grid["columns"])))
             continue
-        tops = [frame.text.split("\n")[i:i + grid["rows"] - 1] for i in range(0, len(frame.text.split("\n")), grid["rows"] - 1)]
-        tops = [lines for lines in tops if any(line.strip() for line in lines)] or [[""]]
+        source_lines = frame.text.split("\n")
+        source_colors = [frame.color] * len(source_lines) if isinstance(frame.color, str) else list(frame.color)
+        tops = [(source_lines[i:i + grid["rows"] - 1], source_colors[i:i + grid["rows"] - 1]) for i in range(0, len(source_lines), grid["rows"] - 1)]
+        tops = [(lines, shades) for lines, shades in tops if any(line.strip() for line in lines)] or [([""], [settings["color"]])]
         bottoms = paginate(routine, 1, grid["columns"])
         for index in range(max(len(tops), len(bottoms))):
-            lines = tops[index % len(tops)]
+            lines, shades = tops[index % len(tops)]
             bottom = bottoms[index % len(bottoms)][0].center(grid["columns"])
             text = "\n".join(lines + [""] * (grid["rows"] - 1 - len(lines)) + [bottom])
-            result.append(replace(frame, key=f"{frame.key}:split:{index}", text=text, color=(frame.color,) * (grid["rows"] - 1) + (settings["alert_color"],), motion="static", kind="Normal + routine alert"))
+            result.append(replace(frame, key=f"{frame.key}:split:{index}", text=text, color=tuple(shades) + (settings["color"],) * (grid["rows"] - 1 - len(lines)) + (settings["alert_color"],), motion="static", kind="Normal + routine alert"))
     return result
 
 

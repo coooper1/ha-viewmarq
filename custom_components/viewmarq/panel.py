@@ -126,5 +126,5 @@ async def _register(hass):
         return
     await hass.http.async_register_static_paths([StaticPathConfig("/viewmarq-assets", str(Path(__file__).parent / "frontend"), False)])
     websocket_api.async_register_command(hass, handle)
-    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.3.5", require_admin=True)
+    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.3.6", require_admin=True)
     hass.data[f"{DOMAIN}_panel"] = True

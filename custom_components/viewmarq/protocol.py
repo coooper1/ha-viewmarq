@@ -44,8 +44,15 @@ def page_message(text, display_id, model, color="green", font="standard", alignm
         raise ValueError("Page does not fit the display")
     colors = {"green": "GRN", "red": "RED", "amber": "AMB"}
     line_colors = [color] * len(lines) if isinstance(color, str) else list(color)
-    if len(line_colors) != len(lines) or any(c not in colors for c in line_colors) or not 1 <= display_id <= 247:
+    if len(line_colors) != len(lines) or not 1 <= display_id <= 247:
         raise ValueError("Invalid page color or display ID")
+    for line, shade in zip(lines, line_colors):
+        if isinstance(shade, str):
+            valid = shade in colors
+        else:
+            valid = len(shade) == len(line) and all(c in colors for c in shade)
+        if not valid:
+            raise ValueError("Invalid field colors")
     # Chapter 5: back apostrophe (ASCII 0x60) displays the degree glyph.
     lines = [line.replace("°", chr(96)) for line in lines]
     if any(any(ord(c) < 32 or ord(c) > 126 or c in "<>" for c in line) for line in lines):
@@ -58,7 +65,14 @@ def page_message(text, display_id, model, color="green", font="standard", alignm
         row = index + first_row
         spare = max(0, geometry["pixel_width"] - len(line) * geometry["cell_width"])
         x = 0 if alignment == "left" else spare if alignment == "right" else spare // 2
-        command += f"<{colors[line_colors[index]]}><POS {x} {row * geometry['cell_height']}><T>{line}</T>"
+        shades = [line_colors[index]] * len(line) if isinstance(line_colors[index], str) else line_colors[index]
+        start = 0
+        while start < len(line):
+            end = start + 1
+            while end < len(line) and shades[end] == shades[start]:
+                end += 1
+            command += f"<{colors[shades[start]]}><POS {x + start * geometry['cell_width']} {row * geometry['cell_height']}><T>{line[start:end]}</T>"
+            start = end
     payload = (command + "\r").encode("ascii")
     if len(payload) > 246:
         raise ValueError("Page exceeds single Modbus transaction size")

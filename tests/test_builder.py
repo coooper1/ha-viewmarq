@@ -167,6 +167,30 @@ class BuilderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_pages([page], self.settings, MODEL)
 
+    def test_individual_colors_share_row_and_survive_alert_composition(self):
+        page = new_page("custom", "colored")
+        page["fields"] = [{**field("text", text=text), "align": align, "color": color}
+                          for text, align, color in (("LEFT", "left", "red"), ("MID", "center", "amber"), ("RIGHT", "right", "green"))]
+        page["fields"].append(field("text", 1, "Underneath"))
+        self.settings.update(pages=[page], scroll="left")
+        validate_pages([page], self.settings, MODEL)
+        frame = self.render()[0]
+        self.assertEqual(frame.motion, "static")
+        self.assertEqual(frame.color[0], ("red",) * 8 + ("amber",) * 8 + ("green",) * 8)
+        payload = page_message(frame.text, 1, MODEL, frame.color, frame.font, frame.alignment)
+        for expected in (b"<RED><POS 0 0>", b"<AMB><POS 48 0>", b"<GRN><POS 96 0>"):
+            self.assertIn(expected, payload)
+        self.assertLessEqual(len(payload), 246)
+        self.settings["binary_sensors"] = ["binary_sensor.door"]
+        self.states["binary_sensor.door"] = state("on", device_class="door", friendly_name="Front door")
+        alert_frame = self.render()[0]
+        self.assertEqual(alert_frame.color[0], frame.color[0])
+        self.assertEqual(alert_frame.color[-1], self.settings["alert_color"])
+        page_message(alert_frame.text, 1, MODEL, alert_frame.color, alert_frame.font, alert_frame.alignment)
+        page["fields"][0]["color"] = "blue"
+        with self.assertRaises(ValueError):
+            validate_pages([page], self.settings, MODEL)
+
     def test_sonos_metadata_and_idle_visibility(self):
         p = new_page("media", "sonos"); p["entity"] = "media_player.test_speaker"
         self.settings["pages"] = [p]

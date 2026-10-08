@@ -1,3 +1,7 @@
+# 0.3.6 — Individual field colors
+
+Each field can inherit the page color or use green, amber or red. Preview and physical output support different colors on the same row. Mixed-color pages remain stationary and preserve colors above routine alerts.
+
 # 0.3.5 — Share one row
 
 Automatic-width, single-line fields on the same row now share left, center and right sections when their alignments differ. The second row stays available; long values continue on additional frames. Explicit widths and columns remain supported. Includes numeric sports samples.
