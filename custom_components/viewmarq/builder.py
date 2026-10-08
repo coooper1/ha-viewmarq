@@ -198,6 +198,8 @@ def validate_pages(pages, settings, model, allow_overlap=False):
                 raise ValueError("Invalid compact text setting")
             if item.get("color_mode", "fixed") not in ("fixed", "possession"):
                 raise ValueError("Invalid automatic field color")
+            if item.get("overflow", "pages") not in ("pages", "scroll"):
+                raise ValueError("Choose next-page or scrolling long text")
             for key in ("text", "label", "entity", "attribute"):
                 if not isinstance(item.get(key, ""), str) or len(item.get(key, "")) > (10000 if key == "text" else 190):
                     raise ValueError(f"Invalid field {key}")
@@ -312,7 +314,12 @@ def render_page(page, settings, model, get_state, now, record):
         text = field_value(item, page, settings, get_state, now, record)
         chunks = []
         for line in text.split("\n"):
-            chunks.extend(textwrap.wrap(line, width, break_long_words=True, break_on_hyphens=False) or [""])
+            if item.get("overflow") == "scroll" and len(line) > width:
+                loop = line + "   "
+                offset = int(now.timestamp()) % len(loop)
+                chunks.append((loop + loop)[offset:offset + width])
+            else:
+                chunks.extend(textwrap.wrap(line, width, break_long_words=True, break_on_hyphens=False) or [""])
         slices = max(slices, math.ceil(len(chunks) / height))
         logical_rows = max(logical_rows, row + height)
         fields.append((item, chunks, width, height))
@@ -345,7 +352,7 @@ def render_page(page, settings, model, get_state, now, record):
             seen.add(signature)
             frame = Frame(f"{page['id']}:{record.get('id', 'main')}:{part}:{start_row}", text,
                           frame_color, font, "left",
-                          "static" if isinstance(frame_color, tuple) else page.get("motion") or settings["scroll"], page.get("speed") or settings["speed"],
+                          "static" if isinstance(frame_color, tuple) or any(item.get("overflow") == "scroll" for item in page["fields"]) else page.get("motion") or settings["scroll"], page.get("speed") or settings["speed"],
                           page.get("dwell") or settings["dwell"], page["type"], page["id"], start_row)
             page_message(frame.text, 1, model, frame.color, frame.font, frame.alignment)
             result.append(frame)
@@ -398,10 +405,13 @@ def render_pages(settings, model, get_state, now, games, statuses=(), alerts=())
     return result
 
 
-def alert_frames(kind, text, color, settings, model, get_state, now, fields=None):
+def alert_frames(kind, text, color, settings, model, get_state, now, fields=None, entity=""):
     templates = [p for p in effective_pages(settings) if p["type"] == kind and p.get("enabled", True)]
+    if kind == "sensor_alert":
+        specific = [p for p in templates if entity and p.get("entity") == entity]
+        templates = specific or [p for p in templates if not p.get("entity")]
     templates = templates or [new_page(kind, f"default-{kind}", settings)]
-    record = {"id": text, "color": color, "fields": {"alert_text": text, **(fields or {})}}
+    record = {"id": entity or text, "color": color, "fields": {"alert_text": text, **(fields or {})}}
     return [frame for page in templates for frame in render_page(page, settings, model, get_state, now, record)]
 
 
@@ -414,8 +424,8 @@ def compose(settings, model, get_state, now, games, statuses=()):
     nws, nws_status = nws_alerts(get_state(settings["nws_alert_entity"]), now) if settings.get("nws_alert_entity") else ([], "")
     warning_frames = [replace(f, kind="Priority alert") for item in nws if item["warning"]
                       for f in alert_frames("weather_alert", item["text"], "red", settings, model, get_state, now, item["fields"])]
-    sensor_urgent = [replace(f, kind="Priority alert") for text, mode, _ in alerts if mode == "full-page"
-                     for f in alert_frames("sensor_alert", text, settings["alert_color"], settings, model, get_state, now)]
+    sensor_urgent = [replace(f, kind="Priority alert") for alert in alerts if alert[1] == "full-page"
+                     for f in alert_frames("sensor_alert", alert[0], settings["alert_color"], settings, model, get_state, now, entity=alert.entity)]
     if sensor_urgent:
         return warning_frames + sensor_urgent
     if warning_frames:
@@ -434,8 +444,8 @@ def compose(settings, model, get_state, now, games, statuses=()):
     geometry = layout(model, settings["font"])
     if nws_status and "unavailable" in nws_status:
         normal.extend(Frame(f"weather-unavailable:{i}", text, "amber", settings["font"], "center", dwell=settings["dwell"], kind="Weather advisory") for i, (text, _) in enumerate(paginate([(nws_status, "amber")], geometry["rows"], geometry["columns"])))
-    routine = [f for text, mode, _ in alerts if mode != "full-page"
-               for f in alert_frames("sensor_alert", text, settings["alert_color"], settings, model, get_state, now)]
+    routine = [f for alert in alerts if alert[1] != "full-page"
+               for f in alert_frames("sensor_alert", alert[0], settings["alert_color"], settings, model, get_state, now, entity=alert.entity)]
     if not routine:
         return normal or [blank]
     result = []
@@ -487,6 +497,11 @@ def sample_frames(page, settings, model, get_state, now):
     values.update(football_play="HOME 2nd & 7 @ HOME 35", possession_side="team")
     values.update(nws_event="TEST Tornado Warning", nws_until="TEST Until 4:30 PM", nws_area="Example area", nws_headline="TEST warning headline", nws_instruction="TEST instructions", nws_severity="TEST Severe")
     values.update(match_score="HOME 14 - AWAY 7", team_abbr="HOME", opponent_abbr="AWAY", home_abbr="HOME", away_abbr="AWAY", team_name="Home team", opponent_name="Away team", home_name="Home team", away_name="Away team", team_score="14", opponent_score="7", home_score="14", away_score="7", game_clock="04:32", game_period="Q2", game_status="Q2 04:32", down_distance="2nd & 7", yard_line="HOME 35", possession="HOME", status_text="Sample status message", alert_text="Sample alert")
+    if page["type"] == "sensor_alert" and page.get("entity"):
+        sensor = get_state(page["entity"])
+        name = sensor.attributes.get("friendly_name", page["entity"]) if sensor else page["entity"]
+        wording = BINARY_MEANINGS.get(sensor.attributes.get("device_class", "") if sensor else "", ("on", "active"))[1]
+        values["alert_text"] = settings.get("sensor_overrides", {}).get(page["entity"], {}).get("message") or f"{name}: {wording}"
     return [replace(frame, kind="SAMPLE — editor only") for frame in render_page(page, settings, model, sample_state, now, {"id":"sample", "fields":values, "color": "red" if page["type"] in ("weather_alert", "sensor_alert") else None})]
 
 

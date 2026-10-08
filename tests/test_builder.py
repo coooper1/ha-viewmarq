@@ -73,6 +73,51 @@ class BuilderTests(unittest.TestCase):
             event["date"] = date
             self.assertEqual(upcoming_games(data, teams, "NFL", now), [])
 
+    def test_individual_sensor_layouts_and_shared_fallback(self):
+        shared = new_page("sensor_alert", "shared")
+        front = new_page("sensor_alert", "front")
+        front.update(entity="binary_sensor.front", fields=[field("text", text="Front open")], color="amber")
+        normal = new_page("text", "normal")
+        self.settings.update(pages=[normal, shared, front], binary_sensors=["binary_sensor.front", "binary_sensor.back"])
+        self.states.update({"binary_sensor.front": state("on", friendly_name="Front Door", device_class="door"), "binary_sensor.back": state("on", friendly_name="Back Door", device_class="door")})
+        rendered = self.render()
+        text = "\n".join(f.text for f in rendered)
+        self.assertIn("Front open", text)
+        self.assertIn("Back Door: open", text)
+        self.assertNotIn("Front Door: open", text)
+        front["enabled"] = False
+        self.assertIn("Front Door: open", "\n".join(f.text for f in self.render()))
+        front["enabled"] = True
+        self.settings["sensor_overrides"] = {"binary_sensor.front": {"presentation": "full-page", "message": "Front!"}}
+        self.assertTrue(all(f.kind == "Priority alert" for f in self.render()))
+        self.assertTrue(all("Front open" in f.text for f in self.render()))
+        front["fields"] = [field("alert_text")]
+        preview = sample_frames(front, self.settings, MODEL, self.states.get, NOW)
+        self.assertIn("Front!", preview[0].text)
+        self.assertEqual(preview[0].kind, "SAMPLE — editor only")
+        self.states["binary_sensor.front"] = state("off", device_class="door")
+        self.assertNotIn("Front!", "\n".join(f.text for f in self.render()))
+
+    def test_field_scroll_preserves_neighbors_and_pagination_choice(self):
+        page = new_page("text", "scroll")
+        page["fields"] = [{**field("text", text="ABCDEFGHIJKLMNOPQRSTUVWXYZ"), "width": 12, "overflow": "scroll", "color": "red"}, {**field("text", text="Fixed"), "column": 12, "width": 12}, field("text", 1, text="Bottom stays")]
+        self.settings["pages"] = [page]
+        validate_pages([page], self.settings, MODEL)
+        first = self.render()
+        later = compose(self.settings, MODEL, self.states.get, NOW + timedelta(seconds=1), [])
+        self.assertEqual(len(first), 1)
+        self.assertEqual(first[0].key, later[0].key)
+        self.assertNotEqual(first[0].text.splitlines()[0][:12], later[0].text.splitlines()[0][:12])
+        self.assertEqual(first[0].text.splitlines()[0][12:], later[0].text.splitlines()[0][12:])
+        self.assertEqual(first[0].text.splitlines()[1], later[0].text.splitlines()[1])
+        self.assertEqual(first[0].motion, "static")
+        self.assertEqual(first[0].color[0][:12], ("red",) * 12)
+        page["fields"][0]["overflow"] = "pages"
+        self.assertEqual(len(self.render()), 3)
+        page["fields"][0]["overflow"] = "bad"
+        with self.assertRaises(ValueError):
+            validate_pages([page], self.settings, MODEL)
+
     def test_migration_preserves_options_and_restart(self):
         self.settings.update(quick_message="Hello", messages="One\nTwo", weather_entity="weather.home", date_style="full-date", teams=[{"league":"NBA","id":"25","name":"Thunder"}], binary_sensors=["binary_sensor.door"])
         before = deepcopy(self.settings)

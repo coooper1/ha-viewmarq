@@ -47,6 +47,14 @@ BINARY_MEANINGS = {
 HAZARDS = {"smoke", "gas", "carbon_monoxide", "safety", "moisture"}
 
 
+class SensorAlert(tuple):
+    """Preserve the message/layout/severity tuple while retaining its source."""
+    def __new__(cls, message, presentation, severity, entity):
+        value = super().__new__(cls, (message, presentation, severity))
+        value.entity = entity
+        return value
+
+
 def active_alerts(settings, get_state):
     """Return message, layout and severity; unknown states never raise an alert."""
     result = []
@@ -66,7 +74,7 @@ def active_alerts(settings, get_state):
             layout = "full-page" if device_class in HAZARDS else "bottom-row"
         name = state.attributes.get("friendly_name", entity_id)
         message = override.get("message") or f"{name}: {wording}"
-        result.append((clean(message), layout, 2 if layout == "full-page" else 1))
+        result.append(SensorAlert(clean(message), layout, 2 if layout == "full-page" else 1, entity_id))
     for rule in settings["alerts"]:
         # A selected sensor's automatic rule replaces its legacy manual rule.
         if rule["entity"] in selected:
@@ -76,7 +84,7 @@ def active_alerts(settings, get_state):
             text = rule["message"].replace("{state}", state.state).replace("{name}", str(state.attributes.get("friendly_name", rule["entity"])))
             layout = rule.get("presentation", settings.get("alert_layout", "bottom-row"))
             if clean(text):
-                result.append((clean(text), layout, 2 if layout == "full-page" else 1))
+                result.append(SensorAlert(clean(text), layout, 2 if layout == "full-page" else 1, rule["entity"]))
     return result
 
 

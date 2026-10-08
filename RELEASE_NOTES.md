@@ -1,3 +1,7 @@
+# 0.5.3 — Individual sensor alert layouts
+
+Each selected sensor now has direct layout editing and preview controls. Sensor-specific page layouts override the shared sensor template, with independent fields, wording, colors, font and positions. Short alert messages autosave and appear in that sensor’s preview. Shared defaults and alert priority remain intact. Each field can continue long text onto additional pages or scroll horizontally within its own bounds, preserving neighboring content and colors. Field scrolling advances one character per second; configured page duration still applies.
+
 # 0.5.2 — Automatic pregame countdown
 
 Editable pregame pages count down from ESPN scheduled start times during the two hours before a selected game. The countdown includes seconds and ESPN broadcaster names, joins everyday rotation two hours before kickoff, and takes over fifteen minutes before kickoff in sports-only mode. Everyday pages return after the live game. Postponed/canceled events are excluded; a scheduled game awaiting ESPN live status shows Awaiting start for at most fifteen minutes. Priority alerts continue to override.
