@@ -16,6 +16,7 @@ from .builder import Player, compose, effective_pages, new_page
 from .protocol import Modbus, send, layout
 from .espn import ESPNCache
 from .status_feed import records
+from .weather_cache import WeatherCache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ class DisplayHub:
         self.settings.update({key: self.geometry[key] for key in ("rows", "columns")})
         self.rotation = Player()
         self.espn = hass.data.setdefault(f"{DOMAIN}_espn", ESPNCache(hass))
+        self.weather = hass.data.setdefault(f"{DOMAIN}_weather", WeatherCache(hass))
         self.sports_status = {}
         self.last = None
         self.last_sent = 0
@@ -73,7 +75,7 @@ class DisplayHub:
     def frames(self, settings=None):
         settings = settings or self.settings
         games, status = self.espn.games(settings)
-        frames = compose(settings, self.entry.data["model"], self.hass.states.get, dt_util.now(), games, records(self.hass, self.entry.entry_id))
+        frames = compose(settings, self.entry.data["model"], self.weather.state, dt_util.now(), games, records(self.hass, self.entry.entry_id))
         return frames, status
 
     async def update(self):

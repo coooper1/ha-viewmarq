@@ -60,3 +60,12 @@ The real sign accepted clock/weather and front-door alert commands; normal pages
 - [Codex app-server](https://learn.chatgpt.com/docs/app-server)
 
 The icon is the vendor application's supplied ViewMarq icon, used to identify the associated hardware. This is an independent integration, not an AutomationDirect product. ViewMarq and ESPN names belong to their owners. Reusable source contains no personal sign address, selected entities or credentials.
+
+
+## Weather and autosave
+
+Valid editor changes save after a one-second pause; wait for **All changes saved** before closing. Invalid layouts remain drafts. Use **Weather and weather alerts** for the detailed layout and NWS source, and **Door and sensor alerts** to customize selected sensors. NWS tests/cancellations/expired records do not generate live warnings. No synthetic warnings are sent for testing.
+
+Rain chance is the next hourly forecast probability, never inferred from rainfall amount. Missing readings remain unavailable. Heat index and feels-like prefer provider values or sensor overrides; fallback estimates are marked `est.` and use the NWS heat-index/wind-chill formulas within their supported conditions. They are supplemental display information. Source coverage and availability depend on the selected HA integrations.
+
+References: [HA forecast response fields](https://www.home-assistant.io/actions/weather.get_forecasts/), [NWS heat index](https://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml), [NWS wind chill](https://www.weather.gov/safety/cold-wind-chill-chart), [NWS Alerts integration](https://github.com/finity69x2/nws_alerts).

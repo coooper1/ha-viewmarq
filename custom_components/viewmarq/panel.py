@@ -13,6 +13,7 @@ from .const import DEFAULTS, DOMAIN
 from .builder import effective_pages, validate_pages, new_page, sample_frames, live_game_preview, PAGE_TYPES, FIELDS
 from .espn import FAVORITES, LEAGUES, team_choices
 from .protocol import FONTS, layout
+from .weather_data import nws_alerts
 
 
 def validated(changes, model, current, preview=False):
@@ -31,11 +32,13 @@ def validated(changes, model, current, preview=False):
         elif key in ("enabled", "show_clock"):
             if type(value) is not bool:
                 raise ValueError(f"Invalid {key}")
-        elif key in ("quick_message", "messages", "weather_entity"):
+        elif key in ("quick_message", "messages", "weather_entity", "nws_alert_entity"):
             if not isinstance(value, str) or len(value) > (10000 if key == "messages" else 190):
                 raise ValueError(f"Invalid {key}")
             if key == "weather_entity" and value and not value.startswith("weather."):
                 raise ValueError("Choose a weather entity")
+            if key == "nws_alert_entity" and value and not value.startswith("sensor."):
+                raise ValueError("Choose an NWS alerts sensor")
         elif key in ("dwell", "sports_max_age"):
             if type(value) is not int or not 1 <= value <= (300 if key == "dwell" else 15):
                 raise ValueError(f"Invalid {key}")
@@ -45,6 +48,16 @@ def validated(changes, model, current, preview=False):
             if not isinstance(value, list) or len(value) > 200 or any(not isinstance(x, str) or not x.startswith("binary_sensor.") for x in value):
                 raise ValueError("Choose binary sensors")
             value = list(dict.fromkeys(value))
+        elif key == "sensor_overrides":
+            if not isinstance(value, dict) or len(value) > 200:
+                raise ValueError("Use up to 200 alert rules")
+            for entity, rule in value.items():
+                if not isinstance(entity, str) or not entity.startswith("binary_sensor.") or not isinstance(rule, dict):
+                    raise ValueError("Choose an alert sensor")
+                if rule.get("presentation", "automatic") not in ("automatic", "bottom-row", "full-page"):
+                    raise ValueError("Choose an alert presentation")
+                if not isinstance(rule.get("message", ""), str) or len(rule.get("message", "")) > 500:
+                    raise ValueError("Alert messages must be under 500 characters")
         elif key == "teams":
             if not isinstance(value, list) or len(value) > 100:
                 raise ValueError("Too many teams")
@@ -68,7 +81,8 @@ def describe(hub):
             "host": hub.entry.data["host"], "settings": {k: v for k, v in hub.settings.items() if k in DEFAULTS},
             "geometry": layout(hub.entry.data["model"], hub.last.font) if hub.last else hub.geometry, "displayed_text": hub.displayed, "colors": colors, "alignment": hub.last.alignment if hub.last else "left", "pages": effective_pages(hub.settings),
             "templates": {kind: new_page(kind, "new", hub.settings) for kind in PAGE_TYPES},
-            "status": hub.status, "failures": hub.failures, "sports": hub.sports_status}
+            "status": hub.status, "failures": hub.failures, "sports": hub.sports_status,
+            "weather_status": nws_alerts(hub.hass.states.get(hub.settings["nws_alert_entity"]), dt_util.now())[1] if hub.settings.get("nws_alert_entity") else "NWS alerts not selected"}
 
 
 @websocket_api.websocket_command({"type": "viewmarq/panel", vol.Required("action"): vol.In(["read", "preview", "save", "teams"]), vol.Optional("entry_id"): str, vol.Optional("settings", default={}): dict, vol.Optional("league"): str, vol.Optional("sample_page"): str, vol.Optional("preview_mode"): vol.In(["rotation", "games", "sample"])})
@@ -105,7 +119,7 @@ async def handle(hass, connection, msg):
             elif msg["action"] == "preview" and msg.get("sample_page"):
                 page = next((p for p in effective_pages(settings) if p["id"] == msg["sample_page"]), None)
                 if page:
-                    frames = sample_frames(page, settings, hub.entry.data["model"], hass.states.get, dt_util.now())
+                    frames = sample_frames(page, settings, hub.entry.data["model"], hub.weather.state, dt_util.now())
             previews = [frame.as_dict(hub.entry.data["model"]) for frame in frames]
             if msg["action"] == "save":
                 hass.config_entries.async_update_entry(hub.entry, options={**hub.entry.options, **changes})
@@ -126,5 +140,5 @@ async def _register(hass):
         return
     await hass.http.async_register_static_paths([StaticPathConfig("/viewmarq-assets", str(Path(__file__).parent / "frontend"), False)])
     websocket_api.async_register_command(hass, handle)
-    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.3.6", require_admin=True)
+    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.4.0", require_admin=True)
     hass.data[f"{DOMAIN}_panel"] = True

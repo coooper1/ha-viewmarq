@@ -8,6 +8,7 @@ import textwrap
 from .content import clean, usable, BINARY_MEANINGS, active_alerts, paginate
 from .protocol import layout, page_message, FONTS
 from .sports_data import SPORT_FIELDS
+from .weather_data import WEATHER_FIELDS, reading, nws_alerts
 
 PAGE_TYPES = {"text": "Text", "clock": "Clock and date", "weather": "Weather", "sports": "Live sports", "entity": "Home Assistant entity", "status": "External status", "alerts": "Active alert list", "custom": "Custom layout"}
 FIELDS = {"text": "Your text", "clock": "Wall clock", "date": "Date", "temperature": "Weather temperature", "condition": "Weather condition", "humidity": "Weather humidity", "wind": "Weather wind", "entity_name": "Entity name", "entity_value": "Entity state", "entity_attribute": "Entity attribute", "status_text": "External status message", "alert_text": "Active alert message", **SPORT_FIELDS}
@@ -15,6 +16,8 @@ DATE_FORMATS = {"weekday-year": "%a %m/%d/%Y", "weekday-date": "%a %m/%d", "full
 PAGE_TYPES["media"] = "Now Playing"
 MEDIA_FIELDS = {"media_title": "Now Playing: title", "media_artist": "Now Playing: artist", "media_album_name": "Now Playing: album", "media_source": "Now Playing: source", "media_app_name": "Now Playing: app", "media_channel": "Now Playing: station / channel", "media_state": "Now Playing: playback state"}
 FIELDS.update(MEDIA_FIELDS)
+FIELDS.update(WEATHER_FIELDS)
+PAGE_TYPES["weather_detail"] = "Detailed weather"
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,11 @@ def new_page(kind, page_id, settings=None):
         "text": [field("text", text="Your message", height=0)],
         "clock": [field("clock"), field("date", 1)],
         "weather": [field("temperature"), field("condition", 1)],
+        "weather_detail": [field("temperature_f"), field("condition", 1),
+                           {**field("rain_chance", 2), "label": "Rain next:"},
+                           {**field("uv_index", 3), "label": "UV:"},
+                           {**field("heat_index", 4), "label": "Heat:"},
+                           {**field("feels_like", 5), "label": "Feels:"}],
         "sports": [field("match_score"), field("game_status", 1)],
         "entity": [field("entity_name"), field("entity_value", 1)],
         "status": [field("status_text", height=0)],
@@ -216,6 +224,10 @@ def field_value(item, page, settings, get_state, now, record):
         value = now.strftime("%I:%M %p").lstrip("0") if page.get("time_format", settings["time_format"]) == "12-hour" else now.strftime("%H:%M")
     elif source == "date":
         value = now.strftime(DATE_FORMATS[page.get("date_style", settings["date_style"])])
+    elif source in WEATHER_FIELDS:
+        weather = get_state(page.get("weather_entity") or settings.get("weather_entity", ""))
+        override = get_state(item["entity"]) if item.get("entity") else None
+        value = "Unavailable" if item.get("entity") and override is None else reading(source, weather, override)
     elif source in ("temperature", "condition", "humidity", "wind"):
         state = get_state(page.get("weather_entity") or settings.get("weather_entity", ""))
         value = "--"
@@ -337,11 +349,17 @@ def compose(settings, model, get_state, now, games, statuses=()):
     if not settings["enabled"]:
         return [replace(blank, kind="Display disabled")]
     alerts = active_alerts(settings, get_state)
+    nws, nws_status = nws_alerts(get_state(settings["nws_alert_entity"]), now) if settings.get("nws_alert_entity") else ([], "")
     urgent = [(text, settings["alert_color"]) for text, mode, _ in alerts if mode == "full-page"]
+    urgent = [(item["text"], "red") for item in nws if item["warning"]] + urgent
     geometry = layout(model, settings["font"])
     if urgent:
         return [Frame(f"urgent:{i}", text, color, settings["font"], "center", dwell=settings["dwell"], kind="Priority alert") for i, (text, color) in enumerate(paginate(urgent, geometry["rows"], geometry["columns"]))]
     normal = render_pages(settings, model, get_state, now, games, statuses, alerts)
+    advisories = [item["text"] for item in nws if not item["warning"]]
+    if nws_status and "unavailable" in nws_status:
+        advisories.append(nws_status)
+    normal.extend(Frame(f"weather-advisory:{i}", text, "amber", settings["font"], "center", dwell=settings["dwell"], kind="Weather advisory") for i, (text, _) in enumerate(paginate([(text, "amber") for text in advisories], geometry["rows"], geometry["columns"])))
     routine = [(text, settings["alert_color"]) for text, mode, _ in alerts if mode != "full-page"]
     if not routine:
         return normal or [blank]

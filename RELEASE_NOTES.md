@@ -1,3 +1,7 @@
+# 0.4.0 — Autosave, detailed weather and alert controls
+
+Valid edits autosave after a one-second pause, preserving newer edits during in-flight saves. Invalid layouts remain drafts with a visible error. Detailed weather shows Fahrenheit, conditions, hourly rain probability when supplied, UV level, heat index and feels-like. Derived temperatures are labeled estimates. NWS actual unexpired warnings override the display in red, watches/advisories rotate in amber, and unavailable sources are reported. Door/sensor message and placement controls are available directly in the editor.
+
 # 0.3.6 — Individual field colors
 
 Each field can inherit the page color or use green, amber or red. Preview and physical output support different colors on the same row. Mixed-color pages remain stationary and preserve colors above routine alerts.
