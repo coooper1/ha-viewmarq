@@ -142,6 +142,10 @@ class BuilderTests(unittest.TestCase):
         samples = sample_frames(page, self.settings, MODEL, self.states.get, NOW)
         self.assertTrue(samples and all("SAMPLE" in f.kind for f in samples))
         self.assertEqual(self.render()[0].key, "blank")
+        page["fields"] = [{**field("team_first_downs", 0), "label": "1st: "}, {**field("opponent_first_downs", 1), "label": "Opp: "}]
+        samples = sample_frames(page, self.settings, MODEL, self.states.get, NOW)
+        self.assertIn("1st: 14", samples[0].text)
+        self.assertIn("Opp: 11", samples[0].text)
 
     def test_sonos_metadata_and_idle_visibility(self):
         p = new_page("media", "sonos"); p["entity"] = "media_player.test_speaker"

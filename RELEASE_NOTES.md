@@ -1,3 +1,7 @@
+# 0.3.4 — Numeric sports samples
+
+Sample layouts now show representative first downs, passing and rushing yards, rebounds, assists, field goal percentages, and turnovers instead of generic sample text. These values remain editor-only; live games use actual feed data.
+
 # 0.3.3 — Preview follows each edit
 
 Update the layout preview while typing and adjusting settings. Automatically show the continuation screen containing the field being edited. Overlapping drafts render with a warning but cannot be saved; other invalid edits clear the stale preview and explain the problem.

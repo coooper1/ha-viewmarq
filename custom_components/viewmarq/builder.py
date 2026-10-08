@@ -335,7 +335,15 @@ def sample_frames(page, settings, model, get_state, now):
         if entity == page.get("entity") and page["type"] == "media":
             return SimpleNamespace(state="playing", attributes={"media_title": "Sample song", "media_artist": "Sample artist", "media_album_name": "Sample album", "source": "Sample source", "app_name": "Sample app", "media_channel": "Sample station"})
         return actual
-    values = {key: "128" if key in ("team_total_yards", "opponent_total_yards") else "Sample" for key in FIELDS}
+    values = {key: "Sample" for key in FIELDS}
+    # Representative editor-only numbers for every supported box-score field.
+    for side, stats in (
+        ("team", (248, 176, 72, 14, 32, 18, "47.5%", 1)),
+        ("opponent", (213, 152, 61, 11, 29, 15, "44.2%", 2)),
+    ):
+        for name, value in zip(("total_yards", "passing_yards", "rushing_yards", "first_downs", "rebounds", "assists", "field_goal_pct", "turnovers"), stats):
+            values[f"{side}_{name}"] = str(value)
+    values["league"] = "NCAAF"
     values.update(match_score="HOME 14 - AWAY 7", team_abbr="HOME", opponent_abbr="AWAY", home_abbr="HOME", away_abbr="AWAY", team_name="Home team", opponent_name="Away team", home_name="Home team", away_name="Away team", team_score="14", opponent_score="7", home_score="14", away_score="7", game_clock="04:32", game_period="Q2", game_status="Q2 04:32", down_distance="2nd & 7", yard_line="HOME 35", possession="HOME", status_text="Sample status message", alert_text="Sample alert")
     return [replace(frame, kind="SAMPLE — editor only") for frame in render_page(page, settings, model, sample_state, now, {"id":"sample", "fields":values})]
 
