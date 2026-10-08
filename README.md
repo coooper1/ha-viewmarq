@@ -69,3 +69,12 @@ Valid editor changes save after a one-second pause; wait for **All changes saved
 Rain chance is the next hourly forecast probability, never inferred from rainfall amount. Missing readings remain unavailable. Heat index and feels-like prefer provider values or sensor overrides; fallback estimates are marked `est.` and use the NWS heat-index/wind-chill formulas within their supported conditions. They are supplemental display information. Source coverage and availability depend on the selected HA integrations.
 
 References: [HA forecast response fields](https://www.home-assistant.io/actions/weather.get_forecasts/), [NWS heat index](https://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml), [NWS wind chill](https://www.weather.gov/safety/cold-wind-chill-chart), [NWS Alerts integration](https://github.com/finity69x2/nws_alerts).
+
+
+## Compact weather, alert layouts and football
+
+Use the compact weather preset for one screen containing time and all weather readings. R is rain chance, H is heat index, F is feels-like, and an asterisk marks an estimate; temperature values are Fahrenheit. Weather warnings can alternate with the same weather screen. Edit weather/sensor alert layouts through the page builder; their fields, colors, fonts and durations apply when an actual alert is active. Routine alerts use their selected placement; incompatible fonts use full-page rotation. Disabled or missing custom alert layouts use the built-in layout.
+
+Preview buttons show editor-only samples. Test-on-sign buttons show explicitly labeled TEST frames for 20 seconds without changing NWS/sensor states. Tests yield to actual priority alerts and can be stopped immediately.
+
+The football possession preset uses actual live feed possession, down-and-distance and yard line. Green means the selected team has possession, even when it is the visiting team; red means its opponent; amber means possession is not supplied. Automatic possession color is available per field.

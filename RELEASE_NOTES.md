@@ -1,3 +1,7 @@
+# 0.5.0 — Compact weather, editable alerts and football possession
+
+Single-screen weather combines time, Fahrenheit, conditions, rain, UV, heat index and feels-like. Weather warnings can alternate with the same weather screen. Weather and sensor alerts use editable page-builder layouts, including fields, colors, fonts and timing. Editor previews remain samples; physical tests are explicitly marked TEST, expire after 20 seconds and yield to actual priority alerts. Stop-test control restores normal operation immediately. Football possession layouts show scores, possession, down-and-distance and ball position, with selected-team possession green, opponent red and unknown amber.
+
 # 0.4.1 — Weather sources per reading
 
 Individual weather readings can use a different weather entity as well as sensor overrides, allowing NWS rain probability alongside UV from another provider.

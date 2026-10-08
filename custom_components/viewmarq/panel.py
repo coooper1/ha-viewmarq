@@ -1,6 +1,7 @@
 """Authenticated display editor and previews using the production formatter."""
 from pathlib import Path
 import asyncio
+import time
 try:
     import probatio as vol
 except ImportError:
@@ -10,7 +11,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.util import dt as dt_util
 
 from .const import DEFAULTS, DOMAIN
-from .builder import effective_pages, validate_pages, new_page, sample_frames, live_game_preview, PAGE_TYPES, FIELDS
+from .builder import effective_pages, validate_pages, new_page, sample_frames, sign_test_frames, live_game_preview, PAGE_TYPES, FIELDS
 from .espn import FAVORITES, LEAGUES, team_choices
 from .protocol import FONTS, layout
 from .weather_data import nws_alerts
@@ -18,6 +19,7 @@ from .weather_data import nws_alerts
 
 def validated(changes, model, current, preview=False):
     enums = {"font": list(FONTS), "alignment": ["left", "center", "right"],
+             "weather_warning_mode": ["warning_only", "alternate_weather"],
              "color": ["green", "red", "amber"], "alert_color": ["green", "red", "amber"], "sports_color": ["amber", "green", "red"],
              "scroll": ["static", "left"], "speed": ["slow", "medium", "fast"],
              "time_format": ["12-hour", "24-hour"], "sports_mode": ["interleave", "only", "hide_clock"],
@@ -85,7 +87,7 @@ def describe(hub):
             "weather_status": nws_alerts(hub.hass.states.get(hub.settings["nws_alert_entity"]), dt_util.now())[1] if hub.settings.get("nws_alert_entity") else "NWS alerts not selected"}
 
 
-@websocket_api.websocket_command({"type": "viewmarq/panel", vol.Required("action"): vol.In(["read", "preview", "save", "teams"]), vol.Optional("entry_id"): str, vol.Optional("settings", default={}): dict, vol.Optional("league"): str, vol.Optional("sample_page"): str, vol.Optional("preview_mode"): vol.In(["rotation", "games", "sample"])})
+@websocket_api.websocket_command({"type": "viewmarq/panel", vol.Required("action"): vol.In(["read", "preview", "save", "teams", "test", "stop_test"]), vol.Optional("entry_id"): str, vol.Optional("settings", default={}): dict, vol.Optional("league"): str, vol.Optional("sample_page"): str, vol.Optional("preview_mode"): vol.In(["rotation", "games", "sample"])})
 @websocket_api.require_admin
 @websocket_api.async_response
 async def handle(hass, connection, msg):
@@ -102,6 +104,11 @@ async def handle(hass, connection, msg):
             hub = hubs.get(msg.get("entry_id"))
             if hub is None:
                 raise ValueError("Display is reloading or no longer configured. Try again.")
+            if msg["action"] == "stop_test":
+                hass.data.setdefault(f"{DOMAIN}_tests", {}).pop(hub.entry.entry_id, None)
+                hub.tick()
+                connection.send_result(msg["id"], {"stopped": True})
+                return
             changes = validated(msg["settings"], hub.entry.data["model"], hub.settings, preview=msg["action"] == "preview")
             settings = {**hub.settings, **changes}
             geometry = layout(hub.entry.data["model"], settings["font"])
@@ -113,6 +120,22 @@ async def handle(hass, connection, msg):
                 except ValueError as error:
                     warning = str(error)
             frames, status = hub.frames(settings)
+            if msg["action"] == "test":
+                if not hub.settings["enabled"]:
+                    raise ValueError("Enable the display before testing")
+                current_frames, _ = hub.frames()
+                if any(f.kind == "Priority alert" for f in current_frames):
+                    raise ValueError("A real priority alert is active; the test cannot replace it")
+                page = next((p for p in effective_pages(settings) if p["id"] == msg.get("sample_page")), None)
+                if page is None:
+                    raise ValueError("Choose a layout to test")
+                test = sign_test_frames(sample_frames(page, settings, hub.entry.data["model"], hub.weather.state, dt_util.now()), hub.entry.data["model"])
+                if not test:
+                    raise ValueError("The layout has no visible content")
+                hass.data.setdefault(f"{DOMAIN}_tests", {})[hub.entry.entry_id] = (test, time.monotonic() + 20)
+                hub.tick()
+                connection.send_result(msg["id"], {"test_started": True, "seconds": 20})
+                return
             if msg["action"] == "preview" and msg.get("preview_mode") == "games":
                 games, status = hub.espn.games(settings)
                 frames = live_game_preview(settings, hub.entry.data["model"], hass.states.get, dt_util.now(), games)
@@ -140,5 +163,5 @@ async def _register(hass):
         return
     await hass.http.async_register_static_paths([StaticPathConfig("/viewmarq-assets", str(Path(__file__).parent / "frontend"), False)])
     websocket_api.async_register_command(hass, handle)
-    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.4.1", require_admin=True)
+    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.5.0", require_admin=True)
     hass.data[f"{DOMAIN}_panel"] = True

@@ -242,6 +242,20 @@ class SportsTests(unittest.TestCase):
         competition["competitors"][0]["score"] = None
         self.assertEqual(live_games(self.data,self.teams,"NFL"), [])
 
+    def test_possession_color_follows_selected_team_even_away(self):
+        competition = self.data['events'][0]['competitions'][0]
+        competition['competitors'][0]['homeAway'] = 'away'
+        competition['competitors'][1]['homeAway'] = 'home'
+        settings = {**deepcopy(DEFAULTS), 'pages': [new_page('football', 'football')]}
+        for possession, expected in [('6', 'green'), ('2', 'red'), ('', 'amber')]:
+            competition['situation'] = {'possession': possession, 'downDistanceText': '2nd & 7', 'possessionText': 'DAL 35'}
+            games = live_games(self.data, self.teams, 'NFL')
+            frames = compose(settings, MODEL, lambda _: None, NOW, games)
+            self.assertIn('2nd & 7 @ DAL 35', frames[0].text)
+            colors = frames[0].color
+            self.assertTrue(all(c == expected for c in colors[1]) if isinstance(colors, tuple) else colors == expected)
+            page_message(frames[0].text, 1, MODEL, colors, frames[0].font, frames[0].alignment)
+
 
 if __name__ == "__main__":
     unittest.main()

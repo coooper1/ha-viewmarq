@@ -13,6 +13,7 @@ SPORT_FIELDS = {
     "game_status": "Game status", "league": "League",
     "down_distance": "Football: down and distance", "yard_line": "Football: ball position",
     "possession": "Team in possession",
+    "football_play": "Football: possession, down and yards",
     "team_total_yards": "Football: selected team's total yards",
     "opponent_total_yards": "Football: opponent's total yards",
     "team_passing_yards": "Football: selected team's passing yards",
@@ -80,6 +81,9 @@ def live_games(data, teams, league, summaries=None):
                         fields["yard_line"] = str(situation["yardLine"])
                 possession = str(situation.get("possession", ""))
                 fields["possession"] = next((clean(c.get("team", {}).get("abbreviation", "")) for c in competitors if str(c.get("team", {}).get("id")) == possession), "")
+                fields["possession_side"] = "team" if possession == str(team.get("team", {}).get("id")) else "opponent" if possession == str(opponent.get("team", {}).get("id")) else ""
+                if league in ("NFL", "NCAAF"):
+                    fields["football_play"] = f"{fields['possession'] or '?'} {fields['down_distance'] or '--'} @ {fields['yard_line'] or '--'}"
                 summary = (summaries or {}).get(str(event["id"]), {})
                 # Exact game-stat names only. Never treat yardsPerGame or season averages as game totals.
                 for side, competitor in (("team", team), ("opponent", opponent)):

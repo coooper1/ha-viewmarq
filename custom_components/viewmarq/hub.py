@@ -28,6 +28,7 @@ class DisplayHub:
         self.geometry = layout(entry.data["model"], self.settings["font"])
         self.settings.update({key: self.geometry[key] for key in ("rows", "columns")})
         self.rotation = Player()
+        self.test_rotation = Player()
         self.espn = hass.data.setdefault(f"{DOMAIN}_espn", ESPNCache(hass))
         self.weather = hass.data.setdefault(f"{DOMAIN}_weather", WeatherCache(hass))
         self.sports_status = {}
@@ -84,7 +85,15 @@ class DisplayHub:
             return
         try:
             frames, self.sports_status = self.frames()
-            selected = self.rotation.choose(frames, now)
+            tests = self.hass.data.setdefault(f"{DOMAIN}_tests", {})
+            test = tests.get(self.entry.entry_id)
+            if test and test[1] <= now:
+                tests.pop(self.entry.entry_id, None)
+                test = None
+            if test and not any(f.kind == "Priority alert" for f in frames):
+                selected = self.test_rotation.choose(test[0], now)
+            else:
+                selected = self.rotation.choose(frames, now)
             # Refresh below any configured device heartbeat, but avoid restarting scrolling each second.
             heartbeat = self.entry.data.get("heartbeat_seconds", 0)
             refresh = max(1, heartbeat / 2) if heartbeat else 60

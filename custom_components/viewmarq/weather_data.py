@@ -126,6 +126,11 @@ def nws_alerts(state, now):
         warning = "warning" in event.lower()
         until = (min(expiry, ends) if ends else expiry).astimezone(now.tzinfo).strftime("%I:%M %p").lstrip("0")
         result.append({"text": f"{event}\nUntil {until}", "warning": warning,
+                       "fields": {"nws_event": event, "nws_until": f"Until {until}",
+                                  "nws_area": clean(alert.get("AreasAffected") or ""),
+                                  "nws_headline": clean(alert.get("Headline") or ""),
+                                  "nws_instruction": clean(alert.get("Instruction") or ""),
+                                  "nws_severity": clean(alert.get("Severity") or "")},
                        "priority": 0 if "tornado warning" in event.lower() else 1 if warning else 2})
     result.sort(key=lambda x: x["priority"])
     return result, "NWS alert data unavailable" if malformed else "NWS: no active alerts" if not result else f"NWS: {len(result)} active alerts"

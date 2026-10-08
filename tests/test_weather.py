@@ -4,7 +4,8 @@ from copy import deepcopy
 import unittest
 
 from custom_components.viewmarq.weather_data import reading, nws_alerts
-from custom_components.viewmarq.builder import compose, new_page, validate_pages
+from custom_components.viewmarq.builder import compose, new_page, validate_pages, sample_frames, sign_test_frames, field
+from custom_components.viewmarq.protocol import page_message
 from custom_components.viewmarq.const import DEFAULTS
 
 NOW = datetime(2026, 10, 8, 20, 0, tzinfo=timezone.utc)
@@ -70,3 +71,39 @@ class WeatherTests(unittest.TestCase):
         settings = {**deepcopy(DEFAULTS), 'weather_entity': 'weather.main', 'pages': [page]}
         frames = compose(settings, 'MD4-0224', states.get, NOW, [])
         self.assertTrue(any('Rain next: 25%' in f.text and 'UV: 4.2 Moderate' in f.text for f in frames))
+
+    def test_compact_weather_and_warning_cycle_share_identical_frame(self):
+        page = new_page('weather_compact', 'compact')
+        states = {'weather.main': state('sunny', temperature=86, temperature_unit='°F', uv_index=4.2, humidity=41,
+                                       _viewmarq_forecast={'precipitation_probability': 100})}
+        settings = {**deepcopy(DEFAULTS), 'weather_entity': 'weather.main', 'pages': [page],
+                    'nws_alert_entity': 'sensor.nws', 'weather_warning_mode': 'alternate_weather'}
+        states['sensor.nws'] = state('0', Alerts=[])
+        validate_pages(settings['pages'], settings, 'MD4-0224')
+        normal = compose(settings, 'MD4-0224', states.get, NOW, [])
+        self.assertEqual(len(normal), 1)
+        for text in ('8:00PM', '86°F', 'Sun', 'UV 4.2', 'R 100%', 'H 86°*', 'F 86°*'):
+            self.assertIn(text, normal[0].text)
+        states['sensor.nws'] = state('1', Alerts=[{'Event': 'Tornado Warning', 'Status': 'Actual', 'Expires': '2026-10-08T21:00:00Z'}])
+        active = compose(settings, 'MD4-0224', states.get, NOW, [])
+        self.assertEqual([f.kind for f in active], ['Priority alert', 'weather_compact'])
+        self.assertEqual(active[1], normal[0])
+        settings['binary_sensors'] = ['binary_sensor.smoke']
+        states['binary_sensor.smoke'] = state('on', device_class='smoke', friendly_name='Smoke')
+        self.assertTrue(all(f.kind == 'Priority alert' for f in compose(settings, 'MD4-0224', states.get, NOW, [])))
+
+    def test_editable_alert_templates_and_explicit_physical_test_marker(self):
+        template = new_page('weather_alert', 'custom-alert')
+        template.update(color='amber', dwell=7)
+        template['fields'][0]['label'] = 'NWS'
+        states = {'sensor.nws': state('1', Alerts=[{'Event': 'Flood Warning', 'Status': 'Actual', 'Expires': '2026-10-08T21:00:00Z'}])}
+        settings = {**deepcopy(DEFAULTS), 'pages': [template], 'nws_alert_entity': 'sensor.nws'}
+        frames = compose(settings, 'MD4-0224', states.get, NOW, [])
+        self.assertIn('NWS Flood Warning', frames[0].text)
+        self.assertEqual(frames[0].color, 'amber'); self.assertEqual(frames[0].dwell, 7)
+        states['sensor.nws'].attributes['Alerts'] = []
+        self.assertEqual(compose(settings, 'MD4-0224', states.get, NOW, [])[0].key, 'blank')
+        template['fields'] = [field('text', text='Custom notice')]
+        tests = sign_test_frames(sample_frames(template, settings, 'MD4-0224', states.get, NOW), 'MD4-0224')
+        self.assertTrue(tests[0].text.startswith('TEST '))
+        page_message(tests[0].text, 1, 'MD4-0224', tests[0].color, tests[0].font, tests[0].alignment)
