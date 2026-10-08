@@ -1,3 +1,7 @@
+# 0.4.1 — Weather sources per reading
+
+Individual weather readings can use a different weather entity as well as sensor overrides, allowing NWS rain probability alongside UV from another provider.
+
 # 0.4.0 — Autosave, detailed weather and alert controls
 
 Valid edits autosave after a one-second pause, preserving newer edits during in-flight saves. Invalid layouts remain drafts with a visible error. Detailed weather shows Fahrenheit, conditions, hourly rain probability when supplied, UV level, heat index and feels-like. Derived temperatures are labeled estimates. NWS actual unexpired warnings override the display in red, watches/advisories rotate in amber, and unavailable sources are reported. Door/sensor message and placement controls are available directly in the editor.

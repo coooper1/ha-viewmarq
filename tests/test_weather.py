@@ -61,3 +61,12 @@ class WeatherTests(unittest.TestCase):
         settings = {**deepcopy(DEFAULTS), 'nws_alert_entity': 'sensor.nws', 'pages': []}
         frames = compose(settings, 'MD4-0224', lambda _: state('1', Alerts=[alerts[1]]), NOW, [])
         self.assertEqual(frames[0].color, 'amber')
+
+    def test_individual_weather_provider_for_rain(self):
+        page = new_page('weather_detail', 'detail')
+        page['fields'][2]['entity'] = 'weather.nws'
+        states = {'weather.main': state('sunny', temperature=86, temperature_unit='°F', uv_index=4.2),
+                  'weather.nws': state('sunny', _viewmarq_forecast={'precipitation_probability': 25})}
+        settings = {**deepcopy(DEFAULTS), 'weather_entity': 'weather.main', 'pages': [page]}
+        frames = compose(settings, 'MD4-0224', states.get, NOW, [])
+        self.assertTrue(any('Rain next: 25%' in f.text and 'UV: 4.2 Moderate' in f.text for f in frames))

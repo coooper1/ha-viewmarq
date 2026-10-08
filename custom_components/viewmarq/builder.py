@@ -225,9 +225,11 @@ def field_value(item, page, settings, get_state, now, record):
     elif source == "date":
         value = now.strftime(DATE_FORMATS[page.get("date_style", settings["date_style"])])
     elif source in WEATHER_FIELDS:
-        weather = get_state(page.get("weather_entity") or settings.get("weather_entity", ""))
-        override = get_state(item["entity"]) if item.get("entity") else None
-        value = "Unavailable" if item.get("entity") and override is None else reading(source, weather, override)
+        source_entity = item.get("entity", "")
+        is_weather = source_entity.startswith("weather.")
+        weather = get_state(source_entity if is_weather else page.get("weather_entity") or settings.get("weather_entity", ""))
+        override = get_state(source_entity) if source_entity and not is_weather else None
+        value = "Unavailable" if source_entity and not is_weather and override is None else reading(source, weather, override)
     elif source in ("temperature", "condition", "humidity", "wind"):
         state = get_state(page.get("weather_entity") or settings.get("weather_entity", ""))
         value = "--"
