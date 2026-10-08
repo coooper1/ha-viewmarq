@@ -1,3 +1,10 @@
+# Release 0.2.3
+
+- Add team to display now saves the added team immediately, preserving existing teams and other settings.
+- Clear saved confirmation removes ambiguity between adding a team and editing a draft.
+- Includes automatic league catalog loading and team-name search.
+- Frontend-only: refresh the ViewMarq page after HACS updates the files. No core restart is needed for this fix.
+
 # Release 0.2.2
 
 - Team lists load automatically when the league changes.
