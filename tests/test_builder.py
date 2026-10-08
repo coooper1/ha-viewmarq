@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import unittest
 
 from custom_components.viewmarq.builder import (Frame, Player, compose, effective_pages,
-    field, new_page, render_pages, validate_pages)
+    field, new_page, render_pages, validate_pages, live_game_preview, sample_frames)
 from custom_components.viewmarq.const import DEFAULTS
 from custom_components.viewmarq.sports_data import live_games
 from custom_components.viewmarq.protocol import page_message, layout
@@ -123,6 +123,23 @@ class BuilderTests(unittest.TestCase):
         self.assertTrue(any(f.kind == "clock" for f in self.render()))
         self.settings["sports_mode"] = "hide_clock"
         self.assertFalse(any(f.kind == "clock" for f in self.render(games)))
+
+    def test_game_preview_does_not_need_current_rotation_or_fake_scores(self):
+        self.settings["pages"] = [new_page("clock", "clock")]
+        original = deepcopy(self.settings)
+        self.assertEqual(live_game_preview(self.settings, MODEL, self.states.get, NOW, []), [])
+        games = [{"id":"actual","team_key":"NFL:6","fields":{"match_score":"DAL 0 - TB 7", "game_status":"Q2 04:32"}}]
+        frames = live_game_preview(self.settings, MODEL, self.states.get, NOW, games)
+        self.assertIn("DAL 0 - TB 7", frames[0].text)
+        self.assertEqual(self.settings, original)
+        self.assertTrue(all(f.kind == "sports" for f in frames))
+
+    def test_game_layout_sample_is_explicit_and_never_added_to_rotation(self):
+        page = new_page("sports", "sports")
+        self.settings["pages"] = [page]
+        samples = sample_frames(page, self.settings, MODEL, self.states.get, NOW)
+        self.assertTrue(samples and all("SAMPLE" in f.kind for f in samples))
+        self.assertEqual(self.render()[0].key, "blank")
 
     def test_sonos_metadata_and_idle_visibility(self):
         p = new_page("media", "sonos"); p["entity"] = "media_player.test_speaker"

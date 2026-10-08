@@ -21,7 +21,7 @@ Open **ViewMarq** in the HA sidebar and choose a sign. Add pages, edit their fie
 - Information is green, alerts are red and sports are amber by default, independently configurable.
 - Configure supported font sizes, alignment, colors, duration and optional left scrolling. Mixed normal/alert rows remain stationary.
 
-The draft preview uses the production text formatter, geometry, wrapping and colors. Its browser typeface is approximate, not a pixel-perfect copy of the device font. The separate live view shows the last command acknowledged by the real sign, not a camera image. Drafts never write to the sign until saved. The explicit **Sample selected page** checkbox uses marked editor-only example data to design inactive sports/media layouts; those samples never enter the hardware queue.
+The draft preview uses the production text formatter, geometry, wrapping and colors. Its browser typeface is approximate, not a pixel-perfect copy of the device font. The separate live view shows the last command acknowledged by the real sign, not a camera image. Drafts never write to the sign until saved. The **Preview content** selector separates current rotation, actual live games for saved teams, and sample layouts. The **Sample of selected page** mode uses marked editor-only example data to design inactive sports/media layouts; those samples never enter the hardware queue.
 
 ## HACS and installation
 

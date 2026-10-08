@@ -339,6 +339,13 @@ def sample_frames(page, settings, model, get_state, now):
     return [replace(frame, kind="SAMPLE — editor only") for frame in render_page(page, settings, model, sample_state, now, {"id":"sample", "fields":values})]
 
 
+def live_game_preview(settings, model, get_state, now, games):
+    """Preview actual games independently of the currently rotating sign page."""
+    pages = [p for p in effective_pages(settings) if p.get("enabled", True) and (p["type"] == "sports" or any(f["source"] in SPORT_FIELDS for f in p["fields"]))]
+    preview = {**settings, "pages": pages or [new_page("sports", "preview-live-games", settings)]}
+    return render_pages(preview, model, get_state, now, games)
+
+
 class Player:
     """Keep time by stable page identity, not by a changing clock or score value."""
     def __init__(self):

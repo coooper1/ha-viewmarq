@@ -1,6 +1,8 @@
-# 0.3.1 — Preview follows scrolling
+# 0.3.2 — Following preview and live-game previews
 
-Fix the preview scroll container so layout and live previews stay visible while editing long pages. Keep preview controls within the viewport, including a compact sticky preview on narrow screens. Frontend-only behavior change; refresh the ViewMarq editor after updating.
+- Preview follows the editor while scrolling, with controls bounded to the window height and compact behavior on narrow screens.
+- Preview content selector separates actual live games for saved teams, current rotation, and clearly marked sample layouts. No-game states stay empty; no fabricated scores.
+- Live preview refreshes automatically from the shared ESPN cache.
 
 # 0.3.0 — Persistent page builder
 
