@@ -61,6 +61,7 @@ class BuilderTests(unittest.TestCase):
         p["fields"][1]["row"] = 0
         with self.assertRaisesRegex(ValueError, "overlap"):
             validate_pages([p], self.settings, MODEL)
+        self.assertEqual(validate_pages([p], self.settings, MODEL, allow_overlap=True), [p])
 
     def test_grid_and_continuation_preserve_alignment(self):
         p = new_page("custom", "grid")
@@ -70,6 +71,7 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(len(frames), 2)
         self.assertEqual(frames[0].text.splitlines()[0], "LEFT               RIGHT")
         self.assertIn("Next frame", frames[1].text)
+        self.assertEqual(frames[1].as_dict(MODEL)["start_row"], 2)
         for f in frames:
             self.assertLessEqual(len(page_message(f.text, 1, MODEL, f.color, f.font, f.alignment)), 246)
 

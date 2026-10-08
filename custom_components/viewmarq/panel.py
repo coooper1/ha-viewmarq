@@ -15,7 +15,7 @@ from .espn import FAVORITES, LEAGUES, team_choices
 from .protocol import FONTS, layout
 
 
-def validated(changes, model, current):
+def validated(changes, model, current, preview=False):
     enums = {"font": list(FONTS), "alignment": ["left", "center", "right"],
              "color": ["green", "red", "amber"], "alert_color": ["green", "red", "amber"], "sports_color": ["amber", "green", "red"],
              "scroll": ["static", "left"], "speed": ["slow", "medium", "fast"],
@@ -24,7 +24,7 @@ def validated(changes, model, current):
     output = {}
     for key, value in changes.items():
         if key == "pages":
-            value = validate_pages(value, {**current, **changes}, model)
+            value = validate_pages(value, {**current, **changes}, model, allow_overlap=preview)
         elif key in enums:
             if value not in enums[key]:
                 raise ValueError(f"Invalid {key}")
@@ -58,7 +58,7 @@ def validated(changes, model, current):
     if "font" in output:
         layout(model, output["font"])
     merged = {**current, **output}
-    validate_pages(effective_pages(merged), merged, model)
+    validate_pages(effective_pages(merged), merged, model, allow_overlap=preview)
     return output
 
 
@@ -88,10 +88,16 @@ async def handle(hass, connection, msg):
             hub = hubs.get(msg.get("entry_id"))
             if hub is None:
                 raise ValueError("Display is reloading or no longer configured. Try again.")
-            changes = validated(msg["settings"], hub.entry.data["model"], hub.settings)
+            changes = validated(msg["settings"], hub.entry.data["model"], hub.settings, preview=msg["action"] == "preview")
             settings = {**hub.settings, **changes}
             geometry = layout(hub.entry.data["model"], settings["font"])
             settings.update({k: geometry[k] for k in ("rows", "columns")})
+            warning = ""
+            if msg["action"] == "preview":
+                try:
+                    validate_pages(effective_pages(settings), settings, hub.entry.data["model"])
+                except ValueError as error:
+                    warning = str(error)
             frames, status = hub.frames(settings)
             if msg["action"] == "preview" and msg.get("preview_mode") == "games":
                 games, status = hub.espn.games(settings)
@@ -103,7 +109,7 @@ async def handle(hass, connection, msg):
             previews = [frame.as_dict(hub.entry.data["model"]) for frame in frames]
             if msg["action"] == "save":
                 hass.config_entries.async_update_entry(hub.entry, options={**hub.entry.options, **changes})
-            result = {"pages": previews, "geometry": geometry, "sports": status, "saved": msg["action"] == "save", "empty_message": "No live game data for saved teams" if msg.get("preview_mode") == "games" else "Blank"}
+            result = {"pages": previews, "geometry": geometry, "sports": status, "saved": msg["action"] == "save", "warning": warning, "empty_message": "No live game data for saved teams" if msg.get("preview_mode") == "games" else "Blank"}
         connection.send_result(msg["id"], result)
     except Exception as error:
         connection.send_error(msg["id"], "viewmarq_error", str(error))
@@ -120,5 +126,5 @@ async def _register(hass):
         return
     await hass.http.async_register_static_paths([StaticPathConfig("/viewmarq-assets", str(Path(__file__).parent / "frontend"), False)])
     websocket_api.async_register_command(hass, handle)
-    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.3.2", require_admin=True)
+    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.3.3", require_admin=True)
     hass.data[f"{DOMAIN}_panel"] = True

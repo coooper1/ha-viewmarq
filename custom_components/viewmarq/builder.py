@@ -29,6 +29,7 @@ class Frame:
     dwell: int = 5
     kind: str = "Normal"
     page_id: str = ""
+    start_row: int = 0
 
     def as_dict(self, model):
         return {**self.__dict__, "geometry": layout(model, self.font)}
@@ -80,7 +81,7 @@ def effective_pages(settings):
     return result
 
 
-def validate_pages(pages, settings, model):
+def validate_pages(pages, settings, model, allow_overlap=False):
     if not isinstance(pages, list) or len(pages) > 1000 or len(json.dumps(pages)) > 524288:
         raise ValueError("Page collection must fit within 512 KiB and 1,000 pages")
     ids = set()
@@ -141,7 +142,7 @@ def validate_pages(pages, settings, model):
                 if not isinstance(item.get(key, ""), str) or len(item.get(key, "")) > (10000 if key == "text" else 190):
                     raise ValueError(f"Invalid field {key}")
             cells = {(y, x) for y in range(row, row + height) for x in range(col, col + width)}
-            if occupied & cells:
+            if occupied & cells and not allow_overlap:
                 raise ValueError(f"Fields overlap on {page['name']}. Move a field or reduce its width/height.")
             occupied |= cells
     return deepcopy(pages)
@@ -253,7 +254,7 @@ def render_page(page, settings, model, get_state, now, record):
             frame = Frame(f"{page['id']}:{record.get('id', 'main')}:{part}:{start_row}", text,
                           page.get("color") or category_color, font, "left",
                           page.get("motion") or settings["scroll"], page.get("speed") or settings["speed"],
-                          page.get("dwell") or settings["dwell"], page["type"], page["id"])
+                          page.get("dwell") or settings["dwell"], page["type"], page["id"], start_row)
             page_message(frame.text, 1, model, frame.color, frame.font, frame.alignment)
             result.append(frame)
     return result
