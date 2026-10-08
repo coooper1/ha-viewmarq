@@ -1,3 +1,7 @@
+# 0.5.4 — Section navigation
+
+The editor has dedicated Pages, Weather, Alerts, Sports and Display sections. A sticky navigation bar switches sections without losing edits. Field cards collapse to summaries, previews stay visible, and alert/preset editing opens the Pages section automatically.
+
 # 0.5.3 — Individual sensor alert layouts
 
 Each selected sensor now has direct layout editing and preview controls. Sensor-specific page layouts override the shared sensor template, with independent fields, wording, colors, font and positions. Short alert messages autosave and appear in that sensor’s preview. Shared defaults and alert priority remain intact. Each field can continue long text onto additional pages or scroll horizontally within its own bounds, preserving neighboring content and colors. Field scrolling advances one character per second; configured page duration still applies.
