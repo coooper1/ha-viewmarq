@@ -1,6 +1,9 @@
 """Normalize actual ESPN game fields without substituting season averages."""
 from .content import clean
 from datetime import datetime, timezone
+from .game_breaks import break_kind
+
+BREAK_FIELDS = {"break_label": "Halftime: team", "break_countdown": "Halftime: estimated return countdown"}
 
 COUNTDOWN_FIELDS = {"game_matchup": "Pregame: teams", "game_countdown": "Pregame: time until start", "game_broadcast": "Pregame: broadcaster"}
 
@@ -84,7 +87,7 @@ STAT_KEYS = {
 SUMMARY_FIELDS = {f"{side}_{key}" for side in ("team", "opponent") for key in STAT_KEYS}
 
 
-def live_games(data, teams, league, summaries=None):
+def live_games(data, teams, league, summaries=None, breaks=None):
     """One record for each selected team's actual in-progress competition."""
     selected = {str(team["id"]) for team in teams if team["league"] == league}
     records = []
@@ -142,5 +145,8 @@ def live_games(data, teams, league, summaries=None):
                         value = values.get(source)
                         if value is not None and str(value).strip() not in ("", "--", "-"):
                             fields[f"{side}_{key}"] = clean(value) + ("%" if key == "field_goal_pct" else "")
-                records.append({"id": f"{league}:{event['id']}:{team['team']['id']}", "event_id": str(event["id"]), "league": league, "team_key": f"{league}:{team['team']['id']}", "fields": fields})
+                fields["break_label"] = f"{fields['team_abbr']} Halftime"
+                records.append({"id": f"{league}:{event['id']}:{team['team']['id']}", "event_id": str(event["id"]), "league": league, "team_key": f"{league}:{team['team']['id']}", "fields": fields,
+                                "break_kind": break_kind(status) if league in ("NFL", "NCAAF") else "",
+                                "break_started": (breaks or {}).get(str(event["id"]), {}).get("started")})
     return records

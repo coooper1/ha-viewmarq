@@ -31,7 +31,7 @@ def validated(changes, model, current, preview=False):
         elif key in enums:
             if value not in enums[key]:
                 raise ValueError(f"Invalid {key}")
-        elif key in ("enabled", "show_clock"):
+        elif key in ("enabled", "show_clock", "sports_breaks"):
             if type(value) is not bool:
                 raise ValueError(f"Invalid {key}")
         elif key in ("quick_message", "messages", "weather_entity", "nws_alert_entity"):
@@ -163,5 +163,5 @@ async def _register(hass):
         return
     await hass.http.async_register_static_paths([StaticPathConfig("/viewmarq-assets", str(Path(__file__).parent / "frontend"), False)])
     websocket_api.async_register_command(hass, handle)
-    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.5.5", require_admin=True)
+    await panel_custom.async_register_panel(hass, "viewmarq", "viewmarq-panel", sidebar_title="ViewMarq", sidebar_icon="mdi:sign-text", module_url="/viewmarq-assets/panel.js?v=0.5.6", require_admin=True)
     hass.data[f"{DOMAIN}_panel"] = True

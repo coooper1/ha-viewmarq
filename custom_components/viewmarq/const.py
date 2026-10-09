@@ -8,5 +8,5 @@ DEFAULTS = {
     "binary_sensors": [], "sensor_overrides": {}, "nws_alert_entity": "", "weather_warning_mode": "warning_only",
     "color": "green", "alert_color": "red", "scroll": "static", "speed": "medium",
     "font": "standard", "alignment": "center",
-    "sports_color": "amber", "sports_mode": "interleave", "pages": None,
+    "sports_color": "amber", "sports_mode": "interleave", "sports_breaks": False, "pages": None,
 }

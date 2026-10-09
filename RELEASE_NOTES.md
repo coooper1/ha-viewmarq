@@ -1,3 +1,7 @@
+# 0.5.6 — Football breaks and halftime estimates
+
+An optional Sports setting restores everyday pages during explicit ESPN halftime and end-of-quarter statuses, then returns to score/downs when live play resumes. An editable halftime page provides a seconds countdown using estimated durations (NFL 13 minutes, college 20), starting only when a fresh transition is observed. Connecting midway through halftime shows Return time unknown; an expired estimate waits for confirmed play. No stopped-clock or commercial-break inference is used. Priority alerts remain in control.
+
 # 0.5.5 — Scroll selected fields even when text fits
 
 Choosing Scroll across this field now moves short text as well as overflowing text. Neighboring fields and colors remain in place.

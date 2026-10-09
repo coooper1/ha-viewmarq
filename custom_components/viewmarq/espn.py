@@ -8,6 +8,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .content import clean, paginate
 from .sports_data import live_games, upcoming_games, SUMMARY_FIELDS
 from .builder import effective_pages
+from .game_breaks import track_breaks
 
 LEAGUES = {
     "NCAAF": ("College football", "football/college-football"),
@@ -86,7 +87,7 @@ class ESPNCache:
             if not feed["updated"] or now - feed["updated"] > settings["sports_max_age"] * 60:
                 continue
             summaries = {event: item["data"] for (sport, event), item in self.summaries.items() if sport == league and now - item["updated"] <= settings["sports_max_age"] * 60}
-            current = live_games(feed["data"], settings.get("teams", []), league, summaries)
+            current = live_games(feed["data"], settings.get("teams", []), league, summaries, feed.get("breaks"))
             games.extend(current)
             games.extend(upcoming_games(feed["data"], settings.get("teams", []), league))
             if needs_summary:
@@ -146,6 +147,7 @@ class ESPNCache:
                     data = await response.json()
                 if not isinstance(data, dict) or not isinstance(data.get("events"), list):
                     raise ValueError("Invalid ESPN scoreboard")
+                feed["breaks"] = track_breaks(data, feed.get("breaks", {}), time.time())
                 feed.update(data=data, updated=time.monotonic(), failures=0, status="Current")
                 live = any(e.get("status", {}).get("type", {}).get("state") == "in" for e in data["events"])
                 scheduled_teams = [{"league": league, "id": c.get("team", {}).get("id")} for e in data["events"] for competition in e.get("competitions", []) for c in competition.get("competitors", [])]
