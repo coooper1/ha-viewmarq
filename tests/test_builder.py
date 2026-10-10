@@ -73,6 +73,28 @@ class BuilderTests(unittest.TestCase):
         countdown["teams"] = ["NFL:6"]
         self.assertEqual([f.page_id for f in compose(self.settings, MODEL, self.states.get, now, [live, pre])], ["score"])
 
+    def test_split_football_spacing_and_independent_colors(self):
+        page = new_page("football", "football")
+        specs = [("possession", 1, 0, 5, None), ("down_distance", 1, 5, 19, None),
+                 ("team_abbr", 0, 0, 5, "green"), ("team_score", 0, 5, 3, "green"),
+                 ("opponent_abbr", 0, 8, 5, "red"), ("opponent_score", 0, 13, 3, "red"),
+                 ("game_period", 0, 16, 3, "amber"), ("game_clock", 0, 19, 5, "amber")]
+        page["fields"] = [{**field(source, row), "column": col, "width": width, "height": 1, "align": "left", "compact": True,
+                           **({"color": color} if color else {"color_mode": "possession"})} for source, row, col, width, color in specs]
+        self.settings["pages"] = [page]
+        validate_pages([page], self.settings, MODEL)
+        for side, color in (("team", "green"), ("opponent", "red"), ("", "amber")):
+            fields = dict(team_abbr="DAL", team_score="99", opponent_abbr="WASH", opponent_score="99", game_period="Q4", game_clock="15:00",
+                          possession="DAL" if side == "team" else "WASH" if side else "", possession_side=side, down_distance="1st & Goal at WASH 10")
+            frames = self.render([{"id": "game", "league": "NFL", "team_key": "NFL:6", "fields": fields}])
+            self.assertEqual(len(frames), 1)
+            self.assertEqual(frames[0].text.splitlines()[0], "DAL  99 WASH 99 Q4 15:00")
+            self.assertIn("1st & Goal @WASH 10", frames[0].text)
+            for column, expected in ((0, "green"), (8, "red"), (16, "amber"), (19, "amber")):
+                self.assertEqual(frames[0].color[0][column], expected)
+            self.assertEqual(frames[0].color[1][5], color)
+            page_message(frames[0].text, 1, MODEL, frames[0].color, frames[0].font, frames[0].alignment)
+
     def test_pregame_invalid_and_delayed_events(self):
         now = datetime(2026, 10, 8, 22, 15, tzinfo=timezone.utc)
         event = {"id": "123", "date": now.isoformat(), "status": {"type": {"state": "pre", "name": "STATUS_SCHEDULED"}}, "competitions": [{"competitors": [{"team": {"id": "6", "abbreviation": "DAL"}}, {"team": {"id": "27", "abbreviation": "TB"}}]}]}

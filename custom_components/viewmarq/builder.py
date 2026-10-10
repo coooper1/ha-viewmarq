@@ -304,6 +304,8 @@ def field_value(item, page, settings, get_state, now, record):
         value = str(value).replace("Unavailable", "--").replace(" est.", "*")
         if source == "clock":
             value = value.replace(" ", "")
+        elif source == "down_distance":
+            value = value.replace(" at ", " @")
         elif source in ("heat_index", "feels_like"):
             value = value.replace("°F", "°")
         elif source == "uv_index":
