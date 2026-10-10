@@ -119,7 +119,9 @@ def live_games(data, teams, league, summaries=None, breaks=None):
                     prefix = "Q" if league in ("NFL", "NCAAF", "NBA", "WNBA") else "P" if league == "NHL" else "Period "
                     fields["game_period"] = prefix + str(period)
                 fields["game_status"] = clean(status.get("type", {}).get("shortDetail") or status.get("type", {}).get("description") or "Live")
-                situation = competition.get("situation", {})
+                # ESPN can retain the previous play during an explicit break.
+                # It is not current possession or down-and-distance then.
+                situation = {} if break_kind(status) else competition.get("situation", {})
                 if league in ("NFL", "NCAAF"):
                     fields["down_distance"] = clean(situation.get("downDistanceText") or situation.get("shortDownDistanceText") or "")
                     yard_line = situation.get("possessionText")

@@ -60,6 +60,19 @@ class BuilderTests(unittest.TestCase):
         countdown["teams"] = ["NFL:99"]
         self.assertEqual([f.page_id for f in render(upcoming)], ["clock"])
 
+    def test_other_live_game_does_not_hide_pregame_countdown(self):
+        now = datetime(2026, 10, 10, 18, 0, tzinfo=timezone.utc)
+        countdown = new_page("pregame", "countdown")
+        self.settings.update(pages=[new_page("clock", "clock"), new_page("sports", "score"), countdown], sports_mode="only")
+        live = {"id": "live", "team_key": "NCAAF:197", "fields": {"match_score": "OSU 7 - UCF 7"}}
+        pre = {"id": "pre", "state": "pre", "team_key": "NCAAF:201", "start": (now + timedelta(minutes=90)).isoformat(), "fields": {"game_matchup": "OU vs TEX", "game_broadcast": "ABC"}}
+        frames = compose(self.settings, MODEL, self.states.get, now, [live, pre])
+        self.assertEqual([f.page_id for f in frames], ["score", "countdown"])
+        self.assertIn("1:30:00", frames[-1].text)
+        # Page-specific filters still apply, independently of other games.
+        countdown["teams"] = ["NFL:6"]
+        self.assertEqual([f.page_id for f in compose(self.settings, MODEL, self.states.get, now, [live, pre])], ["score"])
+
     def test_pregame_invalid_and_delayed_events(self):
         now = datetime(2026, 10, 8, 22, 15, tzinfo=timezone.utc)
         event = {"id": "123", "date": now.isoformat(), "status": {"type": {"state": "pre", "name": "STATUS_SCHEDULED"}}, "competitions": [{"competitors": [{"team": {"id": "6", "abbreviation": "DAL"}}, {"team": {"id": "27", "abbreviation": "TB"}}]}]}

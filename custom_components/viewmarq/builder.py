@@ -373,7 +373,6 @@ def render_page(page, settings, model, get_state, now, record):
 def render_pages(settings, model, get_state, now, games, statuses=(), alerts=()):
     upcoming = [g for g in games if g.get("state") == "pre"]
     games = [g for g in games if g.get("state") != "pre"]
-    all_live = games
     resting = [g for g in games if g.get("break_kind")]
     if settings.get("sports_breaks"):
         games = [g for g in games if not g.get("break_kind")]
@@ -388,8 +387,6 @@ def render_pages(settings, model, get_state, now, games, statuses=(), alerts=())
             records = [g for g in resting if g.get("break_kind") == "halftime" and (not page.get("teams") or g["team_key"] in page["teams"])]
         elif page["type"] == "pregame" or any(f["source"] in COUNTDOWN_FIELDS for f in page["fields"]):
             records = [game for game in upcoming if not page.get("teams") or game["team_key"] in page["teams"]]
-            if all_live:
-                records = []
         elif has_sports:
             records = [game for game in games if not page.get("teams") or game["team_key"] in page["teams"]]
             if page["type"] == "football":
@@ -413,7 +410,7 @@ def render_pages(settings, model, get_state, now, games, statuses=(), alerts=())
             records = [{"id": "main", "fields": {}}]
         for record in records:
             result.extend(render_page(page, settings, model, get_state, now, record))
-    pregame_takeover = not all_live and any((datetime.fromisoformat(game["start"]) - now).total_seconds() <= 900 for game in upcoming)
+    pregame_takeover = any((datetime.fromisoformat(game["start"]) - now).total_seconds() <= 900 for game in upcoming)
     if (games or pregame_takeover) and settings.get("sports_mode") == "only":
         sports_ids = {p["id"] for p in effective_pages(settings) if p["type"] in ("sports", "pregame") or any(f["source"] in SPORT_FIELDS or f["source"] in COUNTDOWN_FIELDS for f in p["fields"])}
         selected = [frame for frame in result if frame.page_id in sports_ids]

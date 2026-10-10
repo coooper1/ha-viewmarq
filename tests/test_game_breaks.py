@@ -50,6 +50,15 @@ class GameBreakTests(unittest.TestCase):
             self.assertIsNone(tracking["game"]["started"])
             self.assertIn("Return time unknown", self.render(games)[-1].text)
 
+    def test_break_does_not_reuse_previous_play_possession(self):
+        self.event["competitions"][0]["situation"] = {"possession": "6", "downDistanceText": "3rd & 7", "possessionText": "DAL 35"}
+        self.assertEqual(live_games(self.data, self.teams, "NFL")[0]["fields"]["possession"], "DAL")
+        for name in ("STATUS_HALFTIME", "STATUS_END_PERIOD"):
+            self.event["status"]["type"]["name"] = name
+            fields = live_games(self.data, self.teams, "NFL")[0]["fields"]
+            for key in ("possession", "possession_side", "down_distance", "yard_line"):
+                self.assertEqual(fields[key], "")
+
     def test_quarter_break_and_other_game_still_live(self):
         self.event["status"].update(period=1)
         self.event["status"]["type"]["name"] = "STATUS_END_PERIOD"
